@@ -27,7 +27,7 @@ linters:
     - nakedret
     - nolintlint
     - rowserrcheck
-    - exportloopref
+    - copyloopvar
     - staticcheck
     - stylecheck
     - typecheck

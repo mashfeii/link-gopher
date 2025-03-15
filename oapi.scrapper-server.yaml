@@ -1,0 +1,6 @@
+# yaml-language-server: ...
+package: scrapper
+generate:
+  std-http-server: true
+  models: true
+output: internal/api/openapi/v1/servers/scrapper/scrapper.gen.go
