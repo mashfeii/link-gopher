@@ -53,7 +53,28 @@ func (bot *BotClient) GetBot() *tgbotapi.BotAPI {
 	return bot.bot
 }
 
+func (bot *BotClient) registerCommands() error {
+	commands := []tgbotapi.BotCommand{
+		{Command: "start", Description: " user registration"},
+		{Command: "help", Description: " displays a list of available commands"},
+		{Command: "track", Description: "start tracking the link"},
+		{Command: "untrack", Description: "stop tracking the link"},
+		{Command: "list", Description: "list all tracked links"},
+		{Command: "cancel", Description: "cancel current operation"},
+	}
+
+	commandsConfig := tgbotapi.NewSetMyCommands(commands...)
+	_, err := bot.bot.Request(commandsConfig)
+
+	return err
+}
+
 func (bot *BotClient) Run() {
+	if err := bot.registerCommands(); err != nil {
+		slog.Error("unable to generate commands", slog.Any("error", err))
+		return
+	}
+
 	updates := bot.bot.GetUpdatesChan(tgbotapi.UpdateConfig{
 		Offset:  0,
 		Timeout: 60,

@@ -5,7 +5,6 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/caarlos0/env/v11"
 	"github.com/spf13/viper"
@@ -30,11 +29,11 @@ type (
 		StackOverflowToken string `env:"STACKOVERFLOW_TOKEN" envDefault:""`
 	}
 	Serving struct {
-		Host         string        `yaml:"host" env:"HOST" envDefault:"localhost"`
-		ScrapperPort int           `yaml:"scrapper_port" env:"SCRAPPER_PORT" envDefault:"8080"`
-		BotPort      int           `yaml:"bot_port" env:"BOT_PORT" envDefault:"8081"`
-		Debug        bool          `yaml:"debug" env:"DEBUG"`
-		Interval     time.Duration `yaml:"interval" env:"INTERVAL" envDefault:"5"`
+		Host         string `yaml:"host" env:"HOST" envDefault:"localhost"`
+		ScrapperPort int    `yaml:"scrapper_port" env:"SCRAPPER_PORT" envDefault:"8080"`
+		BotPort      int    `yaml:"bot_port" env:"BOT_PORT" envDefault:"8081"`
+		Debug        bool   `yaml:"debug" env:"DEBUG"`
+		Interval     int    `yaml:"interval" env:"INTERVAL" envDefault:"5"`
 	}
 )
 

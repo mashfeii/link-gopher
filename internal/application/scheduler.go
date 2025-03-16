@@ -20,7 +20,7 @@ func StartScheduler(deps *ScrapperDependencies) (gocron.Scheduler, error) {
 	}
 
 	_, err = scheduler.NewJob(
-		gocron.DurationJob(deps.Config.Serving.Interval*time.Minute),
+		gocron.DurationJob(time.Duration(deps.Config.Serving.Interval)*time.Minute),
 		gocron.NewTask(
 			checkUpdates,
 			deps.BotClient,
