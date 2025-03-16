@@ -8,9 +8,9 @@ import (
 
 func TestTruncate(t *testing.T) {
 	tests := []struct {
-		input    string
-		max      int
-		expected string
+		input     string
+		maxLength int
+		expected  string
 	}{
 		{"short", 10, "short"},
 		{"thisisaverylongstring", 10, "thisisa..."},
@@ -21,9 +21,10 @@ func TestTruncate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got := pkg.Truncate(tt.input, tt.max)
+			got := pkg.Truncate(tt.input, tt.maxLength)
+
 			if got != tt.expected {
-				t.Errorf("truncate(%q, %d) = %q, want %q", tt.input, tt.max, got, tt.expected)
+				t.Errorf("truncate(%q, %d) = %q, want %q", tt.input, tt.maxLength, got, tt.expected)
 			}
 		})
 	}
@@ -100,6 +101,7 @@ func TestShortenURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := pkg.ShortenURL(tt.input)
+
 			if got != tt.expected {
 				t.Errorf("ShortenURL(%q) = %q, want %q", tt.input, got, tt.expected)
 			}

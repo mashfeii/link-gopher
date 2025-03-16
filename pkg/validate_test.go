@@ -48,6 +48,7 @@ func TestValidateGithubURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			owner, repo, err := pkg.ValidateGithubURL(tt.input)
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error for input %q but got none", tt.input)
@@ -56,6 +57,7 @@ func TestValidateGithubURL(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error for input %q: %v", tt.input, err)
 				}
+
 				if owner != tt.expectedOwner || repo != tt.expectedRepo {
 					t.Errorf("For input %q, expected (%q, %q) but got (%q, %q)",
 						tt.input, tt.expectedOwner, tt.expectedRepo, owner, repo)
@@ -104,6 +106,7 @@ func TestValidateStackOverflowURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			id, err := pkg.ValidateStackOverflowURL(tt.input)
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error for input %q but got none", tt.input)
@@ -112,6 +115,7 @@ func TestValidateStackOverflowURL(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error for input %q: %v", tt.input, err)
 				}
+
 				if id != tt.expectedID {
 					t.Errorf("For input %q, expected questionID %d but got %d", tt.input, tt.expectedID, id)
 				}
