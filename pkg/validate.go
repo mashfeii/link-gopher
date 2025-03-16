@@ -8,7 +8,7 @@ import (
 )
 
 func ValidateGithubURL(url string) (owner, repo string, err error) {
-	pattern := regexp.MustCompile(`github\.com/([a-zA-Z0-9-]+)/([a-zA-Z0-9-]+)`)
+	pattern := regexp.MustCompile(`^(?:https?://)?github\.com/([A-Za-z0-9-]+)/([A-Za-z0-9-]+)/?$`)
 	matches := pattern.FindStringSubmatch(url)
 
 	if len(matches) < 3 {
@@ -19,7 +19,7 @@ func ValidateGithubURL(url string) (owner, repo string, err error) {
 }
 
 func ValidateStackOverflowURL(url string) (questionID int, err error) {
-	pattern := regexp.MustCompile(`stackoverflow\.com/questions/(\d+)/(.*)?`)
+	pattern := regexp.MustCompile(`^(?:https?://)?stackoverflow\.com/questions/(\d+)/(.*)?`)
 	matches := pattern.FindStringSubmatch(url)
 
 	if len(matches) < 3 {

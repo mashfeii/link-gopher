@@ -3,10 +3,16 @@ package pkg
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 )
 
 func ShortenURL(rawURL string) string {
+	re := regexp.MustCompile(`^(http[s]?://(www\.)?|ftp://(www\.)?|www\.)?([0-9A-Za-z.@:\%-_+~#=]+)(\.[a-zA-Z]{2,3})+(/.*)+$`)
+	if !re.MatchString(rawURL) {
+		return rawURL
+	}
+
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
 		return rawURL
@@ -27,14 +33,14 @@ func formatGitHubURL(parsed *url.URL) string {
 	parts := strings.Split(trimmedPath, "/")
 
 	if len(parts) >= 2 {
-		user := truncate(parts[0], 15)
-		repo := truncate(parts[1], 15)
+		user := Truncate(parts[0], 15)
+		repo := Truncate(parts[1], 15)
 
 		return fmt.Sprintf("git: %s:%s", user, repo)
 	}
 
 	if len(parts) == 1 {
-		return "git: " + truncate(parts[0], 25)
+		return "git: " + Truncate(parts[0], 25)
 	}
 
 	return "git: " + parsed.Host
@@ -47,7 +53,7 @@ func formatStackOverflowURL(parsed *url.URL) string {
 	if len(parts) >= 2 && parts[0] == "questions" {
 		if len(parts) >= 3 {
 			slug := strings.ReplaceAll(parts[2], "-", " ")
-			return "stack: " + truncate(slug, 22)
+			return "stack: " + Truncate(slug, 22)
 		}
 
 		return "stack: " + parts[1]
@@ -61,11 +67,10 @@ func formatGenericURL(parsed *url.URL) string {
 
 	var domain string
 
-	for _, part := range hostParts {
-		if part != "www" && part != "" {
-			domain = part
-			break
-		}
+	if len(hostParts) == 2 {
+		domain = hostParts[0]
+	} else if len(hostParts) > 2 {
+		domain = hostParts[len(hostParts)-2]
 	}
 
 	if domain == "" {
@@ -77,7 +82,7 @@ func formatGenericURL(parsed *url.URL) string {
 	path := ""
 
 	if len(pathParts) > 0 {
-		path = truncate(pathParts[0], 15)
+		path = Truncate(pathParts[0], 15)
 	}
 
 	result := domain
@@ -85,10 +90,10 @@ func formatGenericURL(parsed *url.URL) string {
 		result += "/" + path
 	}
 
-	return truncate(result, 30)
+	return Truncate(result, 30)
 }
 
-func truncate(s string, maxChars int) string {
+func Truncate(s string, maxChars int) string {
 	if len(s) > maxChars {
 		if maxChars <= 3 {
 			return s[:maxChars]
