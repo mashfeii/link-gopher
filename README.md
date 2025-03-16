@@ -1,17 +1,118 @@
-# Шаблон Go-проекта для домашних заданий
+# Telegram Link Tracker Bot
 
-Шаблон для домашних заданий [Академии Бэкенда 2024](https://edu.tinkoff.ru/all-activities/courses/870efa9d-7067-4713-97ae-7db256b73eab).
+A service for tracking web resource updates via Telegram, with bot and scrapper components communicating over HTTP.
 
-Цель данного репозитория – познакомить вас с процессом разработки приложений на Go с использованием наиболее распространенных практик, инструментов и библиотек.
+## Requirements
 
-## Структура проекта
+- **[Go 1.23+](github.com/golang/go)**
+- **[Docker 24.0+](docker.com)** (optional for containerized setup)
+- **Telegram Bot Token** (from [@BotFather](https://t.me/BotFather))
 
-Это шаблон проекта, основанный на лучших практиках структурирования Go кода приложения. Проект содержит в себе следующие компоненты:
+## Installation
 
-- `cmd` – директория, содержащая исполняемые файлы приложения. В данном шаблоне есть только один исполняемый файл `run`, который запускает приложение. Хорошей практикой является название пакета, содержащего `main.go` так же, как и название исполняемого файла. Таким образом в каждом домашнем задании вам будет необходимо изменять название пакета `run` на название, подходящее для вашего приложения.
-- `internal` – директория, содержащая внутренние пакеты приложения. Внутренние пакеты не могут быть импортированы другими пакетами вне проекта.
-  - `application` - пакет, в котором содержатся юзкейсы приложения.
-  - `domain` - пакет, в котором содержатся модели приложения.
-  - `infrastructure` - пакет, в котором содержатся инфраструктурные компоненты приложения(работа с выводом пользователю, работа с диском, работа с сетью и т.д.).
-- `pkg` – директория, содержащая пакеты, которые могут быть импортированы другими пакетами вне проекта. Общей рекомендацией является то, что пакеты, содержащиеся в `pkg` должны быть независимыми от остальных пакетов проекта.
-- `api` - директория со спеками API приложения.
+```bash
+git clone git@github.com:central-university-dev/go-mashfeii.git
+cd go-mashfeii
+```
+
+## Configuration
+
+Default configuration lies in `config/default-config.yaml`. You can override these values by specifying custom
+configuration file path within `--config` flag on execution binary for both bot and scrapper.
+
+Project contains several secrets that should be provided via environment, the only mandatory one is `BOT_TOKEN`, without
+`GITHUB_TOKEN` or `STACKOVERFLOW_TOKEN` you will be limited in number of requests to respective APIs.
+
+### Local Development
+
+```bash
+# Build binaries into `bin` directory
+make build
+
+# Start services
+BOT_TOKEN={your_token} ./bin/bot&
+GITHUB_TOKEN={your_token} STACKOVERFLOW_TOKEN={your_token} ./bin/scrapper&
+```
+
+### Docker
+
+```bash
+# Export secrets
+export BOT_TOKEN={your_token}
+export GITHUB_TOKEN={your_token}
+export STACKOVERFLOW_TOKEN={your_token}
+
+# Build and run containers
+docker-compose -f docker/docker-compose.yaml up --build
+```
+
+## Usage
+
+### Telegram Commands
+
+| Command    | Description                  |
+| ---------- | ---------------------------- |
+| `/start`   | Register new user in service |
+| `/track`   | Start monitoring a link      |
+| `/untrack` | Stop monitoring a link       |
+| `/list`    | List all tracked links       |
+| `/help`    | Display commands list        |
+| `/cancel`  | Cancel current operation     |
+
+### API Examples
+
+#### Scrapper API
+
+```bash
+# Register chat
+curl -X POST http://localhost:8080/tg-chat/{chat_id}
+
+# List links (requires chat id inside header)
+curl -H "Tg-Chat-Id: {chat_id}" http://localhost:8080/links
+```
+
+#### Bot API
+
+```bash
+# Send update notification
+curl -X POST http://localhost:8081/updates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "stackoverflow.com/questions/292357",
+    "description": "New answer added",
+    "tgChatId": 7517423324
+  }'
+```
+
+### Project Structure
+
+```
+├── cmd/                # Entry points (bot/scrapper)
+├── config/             # Configuration loader
+├── docker/             # Docker configurations
+├── api/                # OpenAPI specifications
+├── internal/           # Core application logic
+│   ├── clients/        # Third-party integrations
+│   ├── domain/         # Business logic models
+│   └── infrastructure/ # Implementations
+└── Makefile            # Build automation
+```
+
+### Development Tools
+
+#### Prerequisites
+
+- [golangci-lint](github.com/golangci/golangci-lint): linters aggregator
+- [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen/): openAPI generator
+
+```bash
+make test        # Run tests with coverage report
+make lint        # Check code quality (Go + Proto)
+make generate    # Generate API/client code
+make clean       # Remove build artifacts
+```
+
+### OpenAPI Specifications
+
+- **[Scrapper API](./api/openapi/v1/scrapper-api.yaml)**
+- **[Bot API](./api/openapi/v1/bot-api.yaml)**
