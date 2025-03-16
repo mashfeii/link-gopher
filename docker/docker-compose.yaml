@@ -1,0 +1,33 @@
+services:
+  scrapper:
+    build:
+      context: ../
+      dockerfile: docker/scrapper.Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - HOST=scrapper
+      - SCRAPPER_PORT=8080
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - STACKOVERFLOW_TOKEN=${STACKOVERFLOW_TOKEN}
+    networks:
+      - botnet
+
+  bot:
+    build:
+      context: ../
+      dockerfile: docker/bot.Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      - HOST=scrapper
+      - BOT_PORT=8081
+      - BOT_TOKEN=${BOT_TOKEN}
+    depends_on:
+      - scrapper
+    networks:
+      - botnet
+
+networks:
+  botnet:
+    driver: bridge
