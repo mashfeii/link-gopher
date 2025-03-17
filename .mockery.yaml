@@ -1,5 +1,25 @@
 with-expecter: true
 filename: "{{.InterfaceName | snakecase}}.go"
-mockname: "{{.InterfaceName | firstUpper}}"
+mockname: "{{.InterfaceName | firstUpper}}Mock"
 outpkg: mocks
+issue-845-fix: true
+resolve-type-alias: false
+disable-version-string: true
+dir: "internal/mocks/"
 packages:
+  github.com/es-debug/backend-academy-2024-go-template/internal/domain/models:
+    interfaces:
+      LinkChecker:
+      Event:
+
+  github.com/es-debug/backend-academy-2024-go-template/internal/domain/repository:
+    interfaces:
+      UnifiedRepository:
+
+  github.com/es-debug/backend-academy-2024-go-template/internal/api/openapi/v1/clients/bot:
+    interfaces:
+      ClientInterface:
+
+  github.com/es-debug/backend-academy-2024-go-template/internal/api/openapi/v1/clients/scrapper:
+    interfaces:
+      ClientInterface:
