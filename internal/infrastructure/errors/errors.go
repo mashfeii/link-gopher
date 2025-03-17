@@ -101,3 +101,21 @@ func NewErrInvalidURL(url string) error {
 func (e ErrInvalidURL) Error() string {
 	return fmt.Sprintf("invalid URL: %s", e.URL)
 }
+
+type ErrTagNotFound struct {
+	ChatID int64
+	URL    string
+	Tag    string
+}
+
+func NewErrTagNotFound(chatID int64, url, tag string) error {
+	return ErrTagNotFound{
+		ChatID: chatID,
+		URL:    url,
+		Tag:    tag,
+	}
+}
+
+func (e ErrTagNotFound) Error() string {
+	return fmt.Sprintf("tag %s not found for link %s in chat %d", e.Tag, e.URL, e.ChatID)
+}

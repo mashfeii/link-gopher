@@ -167,6 +167,10 @@ func (r *CombinedRepository) DeleteTagFromLink(_ context.Context, chatID int64, 
 		return errors.NewErrLinkNotFound()
 	}
 
+	if _, exists := user.Tags[tag]; !exists {
+		return errors.NewErrTagNotFound(chatID, link.URL, tag)
+	}
+
 	link.DeleteTag(tag)
 
 	stillUsed := false
@@ -200,6 +204,7 @@ func (r *CombinedRepository) UpdateLinkFilters(_ context.Context, chatID int64, 
 	}
 
 	link.UpdateFilters(filters)
+	user.Links[url] = link
 
 	for key, value := range filters {
 		if _, ok := user.Filters[key]; !ok {
