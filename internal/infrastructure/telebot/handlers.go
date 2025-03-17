@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	scrapperclient "github.com/es-debug/backend-academy-2024-go-template/internal/api/openapi/v1/clients/scrapper"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
+	scrapperclient "github.com/es-debug/backend-academy-2024-go-template/internal/api/openapi/v1/clients/scrapper"
 )
 
 func (bot *BotClient) handleCommand(update *tgbotapi.Update) error {

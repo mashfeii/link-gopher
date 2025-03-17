@@ -7,10 +7,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-co-op/gocron/v2"
+
 	bot_client "github.com/es-debug/backend-academy-2024-go-template/internal/api/openapi/v1/clients/bot"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/domain/models"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/domain/repository"
-	"github.com/go-co-op/gocron/v2"
 )
 
 func StartScheduler(deps *ScrapperDependencies) (gocron.Scheduler, error) {

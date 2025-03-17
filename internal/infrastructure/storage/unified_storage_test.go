@@ -4,9 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/es-debug/backend-academy-2024-go-template/internal/domain/models"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/storage"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestCombinedRepository_CreateUser(t *testing.T) {
@@ -73,9 +74,9 @@ func TestCombinedRepository_AddLink(t *testing.T) {
 	ctx := context.Background()
 	userID := int64(126)
 	testLink := &models.Link{
-		URL:  "https://github.com/owner/repo",
-		Tags: map[string]struct{}{"go": {}},
-    Filters: map[string][]string{"filtername": {"filtervalue"}},
+		URL:     "https://github.com/owner/repo",
+		Tags:    map[string]struct{}{"go": {}},
+		Filters: map[string][]string{"filtername": {"filtervalue"}},
 	}
 
 	t.Run("successful link addition", func(t *testing.T) {
@@ -88,14 +89,14 @@ func TestCombinedRepository_AddLink(t *testing.T) {
 		links, err := repo.GetLinks(ctx, userID)
 		assert.NoError(t, err)
 
-    user, err := repo.GetUser(ctx, userID)
-    assert.NoError(t, err)
+		user, err := repo.GetUser(ctx, userID)
+		assert.NoError(t, err)
 
 		assert.Len(t, links, 1)
 		assert.Equal(t, testLink.URL, links[0].URL)
-    assert.Equal(t, testLink.Tags, links[0].Tags)
-    assert.Contains(t, user.Filters, "filtername")
-    assert.Contains(t, user.Filters["filtername"], "filtervalue")
+		assert.Equal(t, testLink.Tags, links[0].Tags)
+		assert.Contains(t, user.Filters, "filtername")
+		assert.Contains(t, user.Filters["filtername"], "filtervalue")
 	})
 
 	t.Run("duplicate link error", func(t *testing.T) {

@@ -6,11 +6,12 @@ import (
 	"net/http"
 	"slices"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/samber/lo"
+
 	scrapper_client "github.com/es-debug/backend-academy-2024-go-template/internal/api/openapi/v1/clients/scrapper"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/errors"
 	"github.com/es-debug/backend-academy-2024-go-template/pkg"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/samber/lo"
 )
 
 func (bot *BotClient) handleAuthorizationCheck(chatID int64) (*scrapper_client.GetLinksResponse, error) {

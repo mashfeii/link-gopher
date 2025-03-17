@@ -6,9 +6,10 @@ import (
 	"log/slog"
 	"net/http"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
 	"github.com/es-debug/backend-academy-2024-go-template/internal/api"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/application"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type API struct {
