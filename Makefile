@@ -15,12 +15,12 @@ build_scrapper:
 	@mkdir -p bin
 	@go build -o ./bin/scrapper ./cmd/scrapper
 
-
 ## test: run all tests
 .PHONY: test
 test:
 	@go test -coverpkg='github.com/es-debug/backend-academy-2024-go-template/...' --race -count=1 -coverprofile='$(COVERAGE_FILE)' ./...
 	@go tool cover -func='$(COVERAGE_FILE)' | grep ^total | tr -s '\t'
+	@go tool cover -html='$(COVERAGE_FILE)' -o coverage.html && xdg-open coverage.html
 
 .PHONY: lint
 lint: lint-golang lint-proto
