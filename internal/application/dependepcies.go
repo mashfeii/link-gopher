@@ -9,13 +9,12 @@ import (
 	"github.com/es-debug/backend-academy-2024-go-template/internal/domain/repository"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/clients/github"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/clients/stackoverflow"
-	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/storage"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot"
 )
 
 type (
-	ScrapperDependencies struct {
-		Repo                repository.UnifiedRepository
+	SchedulerDependencies struct {
+		Repo                repository.LinkRepository
 		BotClient           bot_client.ClientInterface
 		GithubClient        models.LinkChecker
 		StackoverflowClient models.LinkChecker
@@ -27,17 +26,15 @@ type (
 	}
 )
 
-func NewScrapperDependencies(cfg *config.Config) (*ScrapperDependencies, error) {
-	botServer := fmt.Sprintf("http://%s:%d", cfg.Serving.Host, cfg.Serving.BotPort)
-
-	botClient, err := bot_client.NewClient(botServer)
+func NewDefaultDependencies(cfg *config.Config, repo repository.LinkRepository) (*SchedulerDependencies, error) {
+	client, err := bot_client.NewClient(fmt.Sprintf("http://%s:%d", cfg.Serving.Host, cfg.Serving.BotPort))
 	if err != nil {
 		return nil, err
 	}
 
-	return &ScrapperDependencies{
-		Repo:                storage.NewCombinedRepository(),
-		BotClient:           botClient,
+	return &SchedulerDependencies{
+		Repo:                repo,
+		BotClient:           client,
 		GithubClient:        github.NewClient(cfg.Secret.GitHubToken),
 		StackoverflowClient: stackoverflow.NewClient(cfg.Secret.StackOverflowToken),
 		Config:              cfg,

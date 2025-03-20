@@ -14,7 +14,7 @@ import (
 	"github.com/es-debug/backend-academy-2024-go-template/internal/domain/repository"
 )
 
-func StartScheduler(deps *ScrapperDependencies) (gocron.Scheduler, error) {
+func StartScheduler(deps *SchedulerDependencies) (gocron.Scheduler, error) {
 	scheduler, err := gocron.NewScheduler()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create scheduler: %w", err)
@@ -24,8 +24,8 @@ func StartScheduler(deps *ScrapperDependencies) (gocron.Scheduler, error) {
 		gocron.DurationJob(time.Duration(deps.Config.Serving.Interval)*time.Minute),
 		gocron.NewTask(
 			checkUpdates,
-			deps.BotClient,
 			deps.Repo,
+			deps.BotClient,
 			deps.GithubClient,
 			deps.StackoverflowClient,
 		),
@@ -40,12 +40,12 @@ func StartScheduler(deps *ScrapperDependencies) (gocron.Scheduler, error) {
 }
 
 func checkUpdates(
-	linksRepo repository.UnifiedRepository,
+	repo repository.LinkRepository,
 	botClient bot_client.ClientInterface,
 	ghClient models.LinkChecker,
 	soClient models.LinkChecker,
 ) {
-	links, err := linksRepo.GetAllActiveLinks(context.Background())
+	links, err := repo.GetAllActiveLinks(context.Background())
 	if err != nil {
 		return
 	}
