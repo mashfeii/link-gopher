@@ -2,7 +2,11 @@ package api
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
+	"strconv"
+
+	scrapper_api "github.com/es-debug/backend-academy-2024-go-template/internal/api/openapi/v1/servers/scrapper"
 )
 
 func ResponseWithJSON(w http.ResponseWriter, code int, payload any) {
@@ -10,20 +14,21 @@ func ResponseWithJSON(w http.ResponseWriter, code int, payload any) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(payload)
+
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		slog.Error("ResponseWithJSON", slog.Any("error", err))
+	}
 }
 
 func ResponseError(w http.ResponseWriter, code int, err error) {
-	type Dto struct {
-		Description      string `json:"description"`
-		Code             int    `json:"code"`
-		ExceptionMessage string `json:"exceptionMessage"`
-	}
+	codeText := strconv.Itoa(code)
+	statusText := http.StatusText(code)
+	message := err.Error()
 
-	resp := Dto{
-		Description:      http.StatusText(code),
-		Code:             code,
-		ExceptionMessage: err.Error(),
+	resp := scrapper_api.ApiErrorResponse{
+		Code:             &codeText,
+		ExceptionName:    &statusText,
+		ExceptionMessage: &message,
 	}
 
 	ResponseWithJSON(w, code, resp)
