@@ -23,8 +23,7 @@ func (bot *BotClient) handleAuthorizationCheck(chatID int64) (*scrapper_client.G
 	}
 
 	if resp.StatusCode() == http.StatusUnauthorized {
-		_, _ = bot.bot.Send(tgbotapi.NewMessage(chatID, "❌ Unauthorized, please use /start to register"))
-		return nil, fmt.Errorf("unauthorized user")
+		return nil, errors.NewErrUserNotFound()
 	}
 
 	return resp, nil
@@ -94,7 +93,7 @@ func (bot *BotClient) filterLinks(
 			matchTags = hasAllTags(link, selectedTags)
 		}
 
-		matchFilter := false
+		matchFilter := true
 		if filterValid && matchTags {
 			matchFilter = slices.Contains(*link.Filters, filter)
 		}

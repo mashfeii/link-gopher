@@ -101,7 +101,6 @@ func (bot *BotClient) handleSessionCallback(chatID int64, data string, session *
 		}
 	case skipFilters:
 		if err := bot.saveTracking(chatID, session, "edit"); err != nil {
-			_, _ = bot.bot.Send(tgbotapi.NewMessage(chatID, "Failed to save tracking."))
 			return err
 		}
 
@@ -178,16 +177,26 @@ func (bot *BotClient) handleUntrackCallback(chatID int64, data string) error {
 		return fmt.Errorf("unable to untrack link: %w", err)
 	}
 
-	if resp.JSON400 != nil {
-		return fmt.Errorf("invalid request: %s", *resp.JSON400.Description)
+	slog.Info("Scrapper Endpoint: DeleteLinks: ",
+		"Status", resp.StatusCode(),
+	)
+
+	if resp.JSON200 == nil {
+		errorMessage := ""
+
+		if resp.JSON400 != nil {
+			errorMessage = *resp.JSON400.ExceptionName + ": " + *resp.JSON400.ExceptionMessage
+		} else if resp.JSON404 != nil {
+			errorMessage = *resp.JSON404.ExceptionName + ": " + *resp.JSON404.ExceptionMessage
+		}
+
+		return fmt.Errorf("invalid request: %s", errorMessage)
 	}
 
 	if resp.StatusCode() == http.StatusOK {
 		_, _ = bot.bot.Send(tgbotapi.NewMessage(chatID, "✅ Link untracked successfully."))
 
 		bot.clearSession(chatID)
-
-		return nil
 	}
 
 	return nil

@@ -103,19 +103,58 @@ func (e ErrInvalidURL) Error() string {
 }
 
 type ErrTagNotFound struct {
-	ChatID int64
-	URL    string
-	Tag    string
+	LinkID  int64
+	TagName string
 }
 
-func NewErrTagNotFound(chatID int64, url, tag string) error {
+func NewErrTagNotFound(linkID int64, tagName string) error {
 	return ErrTagNotFound{
-		ChatID: chatID,
-		URL:    url,
-		Tag:    tag,
+		LinkID:  linkID,
+		TagName: tagName,
 	}
 }
 
 func (e ErrTagNotFound) Error() string {
-	return fmt.Sprintf("tag %s not found for link %s in chat %d", e.Tag, e.URL, e.ChatID)
+	return fmt.Sprintf("tag %s not found for link %d", e.TagName, e.LinkID)
+}
+
+type ErrTagAlreadyExist struct {
+	TagName string
+	LinkID  int64
+}
+
+func NewErrTagAlreadyExist(tagName string, linkID int64) error {
+	return ErrTagAlreadyExist{TagName: tagName, LinkID: linkID}
+}
+
+func (e ErrTagAlreadyExist) Error() string {
+	return fmt.Sprintf("tag %s already exists for link %d", e.TagName, e.LinkID)
+}
+
+type ErrFilterAlreadyExists struct {
+	LinkID int64
+	Key    string
+	Value  string
+}
+
+func NewErrFilterAlreadyExists(linkID int64, key, value string) error {
+	return ErrFilterAlreadyExists{LinkID: linkID, Key: key, Value: value}
+}
+
+func (e ErrFilterAlreadyExists) Error() string {
+	return fmt.Sprintf("filter with key %s and value %s already exists for link %d", e.Key, e.Value, e.LinkID)
+}
+
+type ErrFilterNotFound struct {
+	LinkID int64
+	Key    string
+	Value  string
+}
+
+func NewErrFilterNotFound(linkID int64, key, value string) error {
+	return ErrFilterNotFound{LinkID: linkID, Key: key, Value: value}
+}
+
+func (e ErrFilterNotFound) Error() string {
+	return fmt.Sprintf("filter with key %s and value %s not found for link %d", e.Key, e.Value, e.LinkID)
 }

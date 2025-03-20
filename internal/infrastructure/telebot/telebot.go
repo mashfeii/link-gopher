@@ -87,7 +87,7 @@ func (bot *BotClient) Run() {
 
 			if err := bot.handleCallback(&update); err != nil {
 				slog.Error("unable to process the callback", slog.Any("error", err))
-				bot.errorMessage(update.CallbackQuery.Message.Chat.ID)
+				bot.errorMessage(update.CallbackQuery.Message.Chat.ID, err)
 			}
 
 			continue
@@ -113,7 +113,7 @@ func (bot *BotClient) Run() {
 				}
 
 				slog.Error("unable to process the session", slog.Any("error", err))
-				bot.errorMessage(chatID)
+				bot.errorMessage(chatID, err)
 			}
 
 			continue
@@ -125,7 +125,7 @@ func (bot *BotClient) Run() {
 			err := bot.handleCommand(&update)
 			if err != nil {
 				slog.Error("unable to process the command", slog.Any("error", err))
-				bot.errorMessage(chatID)
+				bot.errorMessage(chatID, err)
 			}
 
 			continue
@@ -135,7 +135,16 @@ func (bot *BotClient) Run() {
 	}
 }
 
-func (bot *BotClient) errorMessage(chatID int64) {
-	_, _ = bot.bot.Send(tgbotapi.NewMessage(chatID, "❌ Something went wrong. Please try again later."))
+func (bot *BotClient) errorMessage(chatID int64, err error) {
+	message := tgbotapi.NewMessage(chatID, "")
+
+	switch err.(type) {
+	case errors.ErrUserNotFound:
+		message.Text = "😔 You are not registered yet, use /start to register"
+	default:
+		message.Text = "❌ Something went wrong. Please try again later."
+	}
+
+	_, _ = bot.bot.Send(message)
 	bot.clearSession(chatID)
 }

@@ -3,10 +3,13 @@ package main
 import (
 	"flag"
 	"log/slog"
+	"os"
 
 	"github.com/es-debug/backend-academy-2024-go-template/config"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/api/servers"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/application"
+	"github.com/es-debug/backend-academy-2024-go-template/internal/application/service"
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/storage"
 )
 
 func main() {
@@ -16,21 +19,27 @@ func main() {
 	cfg, err := config.NewConfig(*configFileName)
 	if err != nil {
 		slog.Error("unable to load config", slog.Any("error", err))
-		return
+		os.Exit(1)
 	}
 
-	deps, err := application.NewScrapperDependencies(cfg)
+	linksRepo := storage.NewInMemoryLinkRepository()
+	usersRepo := storage.NewInMemoryUserRepository()
+	tagsRepo := storage.NewInMemoryTagRepository()
+	filtersRepo := storage.NewInMemoryFilterRepository()
+
+	service := service.NewService(usersRepo, linksRepo, tagsRepo, filtersRepo)
+	server := servers.NewScrapperServer(cfg, service)
+
+	schedulerDeps, err := application.NewDefaultDependencies(cfg, linksRepo)
 	if err != nil {
 		slog.Error("unable to create dependencies", slog.Any("error", err))
-		return
+		os.Exit(1)
 	}
 
-	server := servers.NewScrapperServer(deps)
-
-	scheduler, err := application.StartScheduler(deps)
+	scheduler, err := application.StartScheduler(schedulerDeps)
 	if err != nil {
 		slog.Error("unable to load config", slog.Any("error", err))
-		return
+		os.Exit(1)
 	}
 
 	defer func() {

@@ -85,7 +85,7 @@ func (bot *BotClient) createTrackSession(chatID int64, initialState State) {
 	defer bot.mu.Unlock()
 
 	if _, err := bot.handleAuthorizationCheck(chatID); err != nil {
-		slog.Error("unable to validate user", "error", err)
+		bot.errorMessage(chatID, err)
 		return
 	}
 
@@ -102,18 +102,31 @@ func (bot *BotClient) createListUntrackSession(chatID int64, command string) err
 	bot.mu.Lock()
 	defer bot.mu.Unlock()
 
+	slog.Info("Bot client: createListUntrackSession", slog.Any("chatID", chatID), slog.Any("command", command))
+
 	resp, err := bot.handleAuthorizationCheck(chatID)
 	if err != nil {
 		return err
 	}
+
+	slog.Info("Bot Client: createListUntrackSession, authorized")
 
 	links, err := validateLinksResponse(chatID, bot, resp)
 	if err != nil || links == nil {
 		return err
 	}
 
+	slog.Info("Bot Client: createListUntrackSession", slog.Any("links", links))
+
 	availableFilters, availableTags := bot.extractFiltersAndTags(*links)
+
+	slog.Info("Bot Client: createListUntrackSession",
+		slog.Any("availableFilters", availableFilters),
+		slog.Any("availableTags", availableTags),
+	)
+
 	session := bot.createTypedSession(SessionTypeListUntrack, command, availableFilters, availableTags)
+	bot.sessions[chatID] = session
 
 	return bot.handleTypedSession(chatID, session)
 }
