@@ -15,18 +15,21 @@ func TestValidateGithubURL(t *testing.T) {
 		expectError   bool
 	}{
 		{
-			name:          "Valid GitHub URL",
-			input:         "https://github.com/user/repo",
-			expectedOwner: "user",
-			expectedRepo:  "repo",
+			name:          "Totally valid",
+			input:         "github.com/golang/go",
+			expectedOwner: "golang",
+			expectedRepo:  "go",
 			expectError:   false,
 		},
 		{
-			name:          "Valid GitHub URL with hyphen",
-			input:         "https://github.com/some-user/some-repo",
-			expectedOwner: "some-user",
-			expectedRepo:  "some-repo",
-			expectError:   false,
+			name:        "Valid structure, invalid address",
+			input:       "https://github.com/user/repo",
+			expectError: true,
+		},
+		{
+			name:        "Valid structure with trailing slash, invalid address",
+			input:       "https://github.com/some-user/some-repo",
+			expectError: true,
 		},
 		{
 			name:        "Invalid GitHub URL: missing repo",
@@ -75,16 +78,15 @@ func TestValidateStackOverflowURL(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name:        "Valid StackOverflow URL",
-			input:       "https://stackoverflow.com/questions/12345678/how-to-code",
-			expectedID:  12345678,
+			name:        "Totally valid",
+			input:       "https://stackoverflow.com/questions/17333517/how-to-compile-a-program-in-go-language",
+			expectedID:  17333517,
 			expectError: false,
 		},
 		{
-			name:        "Valid StackOverflow URL with trailing slash",
+			name:        "Valid structure, invalid address",
 			input:       "https://stackoverflow.com/questions/87654321/",
-			expectedID:  87654321,
-			expectError: false,
+			expectError: true,
 		},
 		{
 			name:        "Invalid StackOverflow URL: non-numeric ID",
