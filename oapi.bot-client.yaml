@@ -1,0 +1,6 @@
+# yaml-language-server: ...
+package: bot_client
+generate:
+  models: true
+  client: true
+output: internal/api/openapi/v1/clients/bot/bot.gen.go

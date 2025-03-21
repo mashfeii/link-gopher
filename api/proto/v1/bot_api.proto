@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package bot.v1;
+
+option go_package = "gen/botv1";
+
+message LinkUpdateRequest {
+  string url = 1;
+  string description = 2;
+  int64 tg_chat_id = 3;
+}
+
+message LinkUpdateResponse {
+  int64 tg_chat_id = 1;
+}
+
+message ApiErrorResponse {
+  string description = 1;
+  string code = 2;
+  string exception_name = 3;
+  string exception_message = 4;
+  repeated string stacktrace = 5;
+}
+
+service BotService {
+  rpc SendUpdate(LinkUpdateRequest) returns (LinkUpdateResponse) {};
+}

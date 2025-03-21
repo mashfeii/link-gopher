@@ -27,7 +27,7 @@ linters:
     - nakedret
     - nolintlint
     - rowserrcheck
-    - exportloopref
+    - copyloopvar
     - staticcheck
     - stylecheck
     - typecheck
@@ -49,7 +49,7 @@ linters-settings:
     lines: 70
     statements: 50
   goimports:
-    local-prefixes: PLACE_YOUR_PACKAGE_NAME
+    local-prefixes: github.com/es-debug/backend-academy-2024-go-template
   gocritic:
     enabled-tags:
       - style

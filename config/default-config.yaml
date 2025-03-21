@@ -1,0 +1,11 @@
+database:
+  host: localhost
+  port: 5432
+  username: postgres
+  password: password
+  name: mydb
+serving:
+  host: localhost
+  scrapper_port: 8080
+  bot_port: 8081
+  debug: true

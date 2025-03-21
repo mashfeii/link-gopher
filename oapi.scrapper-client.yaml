@@ -1,0 +1,6 @@
+# yaml-language-server: ...
+package: scrapper_client
+generate:
+  client: true
+  models: true
+output: internal/api/openapi/v1/clients/scrapper/scrapper.gen.go
