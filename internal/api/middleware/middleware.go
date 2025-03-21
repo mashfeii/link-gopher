@@ -10,15 +10,15 @@ func SlogLogging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		slog.Group("request",
+		slog.Group("request start",
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
 		)
 
-		lrw := NewLoggingResponseWriter(w)
+		lrw := newLoggingResponseWriter(w)
 		next.ServeHTTP(lrw, r)
 
-		slog.Info("request completed",
+		slog.Group("request completed",
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
 			slog.Int("status", lrw.statusCode),
@@ -32,7 +32,7 @@ type loggingResponseWriter struct {
 	statusCode int
 }
 
-func NewLoggingResponseWriter(w http.ResponseWriter) *loggingResponseWriter {
+func newLoggingResponseWriter(w http.ResponseWriter) *loggingResponseWriter {
 	return &loggingResponseWriter{w, http.StatusOK}
 }
 
