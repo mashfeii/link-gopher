@@ -6,6 +6,8 @@ import (
 	"os"
 
 	"github.com/es-debug/backend-academy-2024-go-template/config"
+	"github.com/es-debug/backend-academy-2024-go-template/internal/api/middleware"
+	scrapper_api "github.com/es-debug/backend-academy-2024-go-template/internal/api/openapi/v1/servers/scrapper"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/api/servers"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/application"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/application/service"
@@ -13,6 +15,9 @@ import (
 )
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{AddSource: true}))
+	slog.SetDefault(logger)
+
 	configFileName := flag.String("config", "", "config file name/path")
 	flag.Parse()
 
@@ -28,7 +33,9 @@ func main() {
 	filtersRepo := storage.NewInMemoryFilterRepository()
 
 	service := service.NewService(usersRepo, linksRepo, tagsRepo, filtersRepo)
-	server := servers.NewScrapperServer(cfg, service)
+
+	middlewares := []scrapper_api.MiddlewareFunc{middleware.SlogLogging}
+	server := servers.NewScrapperServer(cfg, service, middlewares)
 
 	schedulerDeps, err := application.NewDefaultDependencies(cfg, linksRepo)
 	if err != nil {

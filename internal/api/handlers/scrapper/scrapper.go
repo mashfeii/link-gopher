@@ -3,7 +3,6 @@ package scrapper
 import (
 	"encoding/json"
 	defaulterrors "errors"
-	"log/slog"
 	"net/http"
 
 	"github.com/es-debug/backend-academy-2024-go-template/internal/api"
@@ -24,14 +23,11 @@ func NewAPI(service service.UserService) *API {
 
 // (DELETE /links).
 func (s *API) DeleteLinks(w http.ResponseWriter, r *http.Request, params scrapper_api.DeleteLinksParams) {
-	slog.Info("Scrapper Endpoint: DeleteLinks: ", slog.Any("params", params))
-
 	requestBody := struct {
 		Link string `json:"link"`
 	}{}
 
 	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
-		slog.Error("Scrapper Endpoint: DeleteLinks: Decode json: ", slog.Any("error", err))
 		api.ResponseError(w, http.StatusBadRequest, err)
 
 		return
@@ -54,8 +50,6 @@ func (s *API) DeleteLinks(w http.ResponseWriter, r *http.Request, params scrappe
 
 // (GET /links).
 func (s *API) GetLinks(w http.ResponseWriter, r *http.Request, params scrapper_api.GetLinksParams) {
-	slog.Info("Scrapper Endpoint: GetLinks: ", slog.Any("params", params))
-
 	linksResponse, status, err := s.service.RetrieveLinks(r.Context(), params.TgChatId)
 	if err != nil {
 		api.ResponseError(w, status, err)
@@ -63,11 +57,6 @@ func (s *API) GetLinks(w http.ResponseWriter, r *http.Request, params scrapper_a
 	}
 
 	size := int32(len(linksResponse)) //nolint:gosec // specification limitation
-
-	slog.Info("Scrapper Endpoint: GetLinks: ",
-		"links", linksResponse,
-		"size", size,
-	)
 
 	api.ResponseWithJSON(w, http.StatusOK, scrapper_api.ListLinksResponse{
 		Links: &linksResponse,
@@ -77,8 +66,6 @@ func (s *API) GetLinks(w http.ResponseWriter, r *http.Request, params scrapper_a
 
 // (POST /links).
 func (s *API) PostLinks(w http.ResponseWriter, r *http.Request, params scrapper_api.PostLinksParams) {
-	slog.Info("Scrapper Endpoint: PostLinks: ", slog.Any("params", params))
-
 	requestBody := struct {
 		Link    string   `json:"link"`
 		Tags    []string `json:"tags"`
@@ -101,8 +88,6 @@ func (s *API) PostLinks(w http.ResponseWriter, r *http.Request, params scrapper_
 		api.ResponseError(w, code, err)
 	}
 
-	slog.Info("Scrapper Endpoint: PostLinks: ", "saved link", link)
-
 	api.ResponseWithJSON(w, http.StatusOK, scrapper_api.LinkResponse{
 		Id:      &link.LinkID,
 		Url:     &link.URL,
@@ -113,8 +98,6 @@ func (s *API) PostLinks(w http.ResponseWriter, r *http.Request, params scrapper_
 
 // (DELETE /tg-chat/{id}).
 func (s *API) DeleteTgChatId(w http.ResponseWriter, r *http.Request, id int64) { //nolint:stylecheck,revive // generated method
-	slog.Info("Scrapper Endpoint: DeleteTgChatId: ", slog.Any("id", id))
-
 	code, err := s.service.DeleteUser(r.Context(), id)
 	if err != nil {
 		api.ResponseError(w, code, err)
@@ -126,8 +109,6 @@ func (s *API) DeleteTgChatId(w http.ResponseWriter, r *http.Request, id int64) {
 
 // (POST /tg-chat/{id}).
 func (s *API) PostTgChatId(w http.ResponseWriter, r *http.Request, id int64) { //nolint:stylecheck,revive // generated method
-	slog.Info("Scrapper Endpoint: PostTgChatId: ", slog.Any("id", id))
-
 	code, err := s.service.RegisterUser(r.Context(), id)
 	if err != nil {
 		if defaulterrors.As(err, &errors.ErrUserAlreadyExists{}) {

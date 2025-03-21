@@ -12,11 +12,18 @@ import (
 	"github.com/es-debug/backend-academy-2024-go-template/internal/application/service"
 )
 
-func NewScrapperServer(cfg *config.Config, service service.UserService) *http.Server {
+func NewScrapperServer(
+	cfg *config.Config,
+	service service.UserService,
+	middlewares []scrapper_api.MiddlewareFunc,
+) *http.Server {
 	api := scrapper.NewAPI(service)
 
 	mux := http.NewServeMux()
-	handler := scrapper_api.HandlerFromMux(api, mux)
+	handler := scrapper_api.HandlerWithOptions(api, scrapper_api.StdHTTPServerOptions{
+		BaseRouter:  mux,
+		Middlewares: middlewares,
+	})
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf("%s:%d", cfg.Serving.Host, cfg.Serving.ScrapperPort),
