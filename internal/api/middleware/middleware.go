@@ -22,6 +22,7 @@ func SlogLogging(next http.Handler) http.Handler {
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
 			slog.Int("status", lrw.statusCode),
+			slog.String("bytes", lrw.Header().Get("Content-Length")),
 			slog.Duration("duration", time.Since(start)),
 		)
 	})

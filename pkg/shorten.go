@@ -8,6 +8,10 @@ import (
 )
 
 func ShortenURL(rawURL string) string {
+	if !strings.HasPrefix(rawURL, "https://") {
+		rawURL = "https://" + rawURL
+	}
+
 	re := regexp.MustCompile(`^(http[s]?://(www\.)?|ftp://(www\.)?|www\.)?([0-9A-Za-z.@:\%-_+~#=]+)(\.[a-zA-Z]{2,3})+(/.*)+$`)
 	if !re.MatchString(rawURL) {
 		return rawURL

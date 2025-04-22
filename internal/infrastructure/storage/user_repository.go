@@ -37,7 +37,7 @@ func (u *InMemoryUserRepository) GetUser(_ context.Context, chatID int64) (*mode
 	defer u.mu.RUnlock()
 
 	if _, ok := u.users[chatID]; !ok {
-		return nil, errors.NewErrUserNotFound()
+		return nil, errors.NewErrUserNotFound(chatID)
 	}
 
 	return &models.User{ChatID: chatID}, nil
@@ -48,7 +48,7 @@ func (u *InMemoryUserRepository) DeleteUser(_ context.Context, chatID int64) err
 	defer u.mu.Unlock()
 
 	if _, ok := u.users[chatID]; !ok {
-		return errors.NewErrUserNotFound()
+		return errors.NewErrUserNotFound(chatID)
 	}
 
 	delete(u.users, chatID)

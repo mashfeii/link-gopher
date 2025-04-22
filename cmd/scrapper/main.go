@@ -33,8 +33,9 @@ func main() {
 	filtersRepo := storage.NewInMemoryFilterRepository()
 
 	service := service.NewService(usersRepo, linksRepo, tagsRepo, filtersRepo)
-
-	middlewares := []scrapper_api.MiddlewareFunc{middleware.SlogLogging}
+	middlewares := []scrapper_api.MiddlewareFunc{
+		middleware.SlogLogging,
+	}
 	server := servers.NewScrapperServer(cfg, service, middlewares)
 
 	schedulerDeps, err := application.NewDefaultDependencies(cfg, linksRepo)

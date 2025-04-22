@@ -3,15 +3,16 @@ package errors
 import "fmt"
 
 type ErrUserNotFound struct {
-	Code int
+	ChatID int64
+	Code   int
 }
 
-func NewErrUserNotFound() error {
-	return ErrUserNotFound{Code: 404}
+func NewErrUserNotFound(chatID int64) error {
+	return ErrUserNotFound{ChatID: chatID, Code: 404}
 }
 
 func (e ErrUserNotFound) Error() string {
-	return "user not found"
+	return fmt.Sprintf("user %d not found", e.ChatID)
 }
 
 type ErrLinkNotFound struct {
@@ -157,4 +158,16 @@ func NewErrFilterNotFound(linkID int64, key, value string) error {
 
 func (e ErrFilterNotFound) Error() string {
 	return fmt.Sprintf("filter with key %s and value %s not found for link %d", e.Key, e.Value, e.LinkID)
+}
+
+type ErrNoLinksFound struct {
+	ChatID int64
+}
+
+func NewErrNoLinksFound(chatID int64) error {
+	return ErrNoLinksFound{ChatID: chatID}
+}
+
+func (e ErrNoLinksFound) Error() string {
+	return fmt.Sprintf("no links found for chatID %d", e.ChatID)
 }

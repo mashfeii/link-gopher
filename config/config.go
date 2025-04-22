@@ -12,6 +12,7 @@ import (
 
 type (
 	Config struct {
+		Env      string   `yaml:"env" env:"ENV" envDefault:"local"`
 		Database Database `yaml:"database"`
 		Secret   Secret
 		Serving  Serving `yaml:"serving"`
