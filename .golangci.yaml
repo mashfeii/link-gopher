@@ -1,71 +1,86 @@
+version: "2"
 run:
   tests: true
-  timeout: 5m
 linters:
-  disable-all: true
+  default: none
   enable:
+    - asciicheck
     - bodyclose
+    - copyloopvar
     - dogsled
     - dupl
     - errcheck
     - exhaustive
     - funlen
     - gochecknoinits
+    - gocognit
     - goconst
     - gocritic
     - gocyclo
-    - gofmt
-    - goimports
-    - revive
+    - godot
     - goprintffuncname
     - gosec
-    - gosimple
     - govet
     - ineffassign
     - lll
     - misspell
     - nakedret
+    - nestif
     - nolintlint
+    - prealloc
+    - revive
     - rowserrcheck
-    - copyloopvar
     - staticcheck
-    - stylecheck
-    - typecheck
+    - testpackage
     - unconvert
     - unparam
     - unused
     - whitespace
-    - asciicheck
-    - gocognit
-    - godot
-    - nestif
-    - prealloc
-    - testpackage
     - wsl
-linters-settings:
-  lll:
-    line-length: 140
-  funlen:
-    lines: 70
-    statements: 50
-  goimports:
-    local-prefixes: github.com/es-debug/backend-academy-2024-go-template
-  gocritic:
-    enabled-tags:
-      - style
-      - experimental
-      - performance
-      - diagnostic
-      - opinionated
-
-issues:
-  exclude-rules:
-    - path: "_test.go"
-      linters:
-        - funlen
-        - dupl
-
-    - path: "_test.go"
-      linters:
-        - gocritic
-      text: 'hugeParam\: \S+ is heavy \(\d+ bytes\)\; consider passing it by pointer'
+  settings:
+    funlen:
+      lines: 70
+      statements: 50
+    gocritic:
+      enabled-tags:
+        - style
+        - experimental
+        - performance
+        - diagnostic
+        - opinionated
+    lll:
+      line-length: 140
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - dupl
+          - funlen
+        path: _test.go
+      - linters:
+          - gocritic
+        path: _test.go
+        text: 'hugeParam\: \S+ is heavy \(\d+ bytes\)\; consider passing it by pointer'
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/es-debug/backend-academy-2024-go-template
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
