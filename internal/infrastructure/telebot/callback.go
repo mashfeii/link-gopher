@@ -12,6 +12,8 @@ import (
 
 	scrapper_client "github.com/es-debug/backend-academy-2024-go-template/internal/api/openapi/v1/clients/scrapper"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/errors"
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/models"
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/ui"
 )
 
 const (
@@ -24,7 +26,7 @@ const (
 func (bot *BotClient) handleCallback(update *tgbotapi.Update) error {
 	chatID := update.CallbackQuery.Message.Chat.ID
 	data := update.CallbackQuery.Data
-	session := bot.getSession(chatID)
+	session := bot.sessionManager.Get(chatID)
 
 	callback := tgbotapi.NewCallback(update.CallbackQuery.ID, "⏳ Processing...")
 	if _, err := bot.bot.Request(callback); err != nil {
@@ -36,21 +38,21 @@ func (bot *BotClient) handleCallback(update *tgbotapi.Update) error {
 	}
 
 	switch session.Type {
-	case SessionTypeTrack:
+	case models.SessionTypeTrack:
 		return bot.handleSessionCallback(chatID, data, session)
-	case SessionTypeListUntrack:
+	case models.SessionTypeListUntrack:
 		return bot.handleListUntrackCallback(chatID, data, session)
 	default:
 		return errors.NewErrUnknownSessionType(chatID)
 	}
 }
 
-func (bot *BotClient) handleSessionCallback(chatID int64, data string, session *UserSession) error {
+func (bot *BotClient) handleSessionCallback(chatID int64, data string, session *models.UserSession) error {
 	switch data {
 	case "return_url":
-		session.State = StateWaitingURL
+		session.State = models.StateWaitingURL
 		session.Filters = nil
-		bot.setSession(chatID, session)
+		bot.sessionManager.Set(chatID, session)
 
 		edit := tgbotapi.NewEditMessageText(
 			chatID,
@@ -63,9 +65,9 @@ func (bot *BotClient) handleSessionCallback(chatID int64, data string, session *
 		}
 
 	case returnTags:
-		session.State = StateWaitingTags
+		session.State = models.StateWaitingTags
 		session.Filters = nil
-		bot.setSession(chatID, session)
+		bot.sessionManager.Set(chatID, session)
 
 		skipButton := tgbotapi.NewInlineKeyboardButtonData("🚫 Skip", "skip_tags")
 		returnButton := tgbotapi.NewInlineKeyboardButtonData("◀️ Step back", "return_url")
@@ -82,7 +84,7 @@ func (bot *BotClient) handleSessionCallback(chatID int64, data string, session *
 		}
 
 	case "skip_tags":
-		session.State = StateWaitingFilters
+		session.State = models.StateWaitingFilters
 
 		skipBtn := tgbotapi.NewInlineKeyboardButtonData("🚫 Skip", "skip_filters")
 		returnButton := tgbotapi.NewInlineKeyboardButtonData("◀️ Step back", returnTags)
@@ -94,7 +96,7 @@ func (bot *BotClient) handleSessionCallback(chatID int64, data string, session *
 			tgbotapi.NewInlineKeyboardMarkup([]tgbotapi.InlineKeyboardButton{returnButton, skipBtn}),
 		)
 
-		bot.setSession(chatID, session)
+		bot.sessionManager.Set(chatID, session)
 
 		if _, err := bot.bot.Send(edit); err != nil {
 			return err
@@ -104,17 +106,17 @@ func (bot *BotClient) handleSessionCallback(chatID int64, data string, session *
 			return err
 		}
 
-		bot.clearSession(chatID)
+		bot.sessionManager.Clear(chatID)
 	}
 
 	return nil
 }
 
-func (bot *BotClient) handleListUntrackCallback(chatID int64, data string, session *UserSession) error {
+func (bot *BotClient) handleListUntrackCallback(chatID int64, data string, session *models.UserSession) error {
 	switch {
 	case strings.HasPrefix(data, "tag_toggle "):
 		tag := strings.TrimPrefix(data, "tag_toggle ")
-		session.toggleTag(tag)
+		session.ToggleTag(tag)
 
 		if err := bot.updateTagKeyboard(chatID, session); err != nil {
 			return err
@@ -125,7 +127,7 @@ func (bot *BotClient) handleListUntrackCallback(chatID int64, data string, sessi
 			return bot.finalizeListUntrackSession(chatID, session)
 		}
 
-		session.State = StateWaitingFiltersSelection
+		session.State = models.StateWaitingFiltersSelection
 		if err := bot.sendFilterKeyKeyboard(chatID, session); err != nil {
 			return err
 		}
@@ -145,14 +147,14 @@ func (bot *BotClient) handleListUntrackCallback(chatID int64, data string, sessi
 
 	case data == "return_filters":
 		session.CurrentFilterName = ""
-		session.State = StateWaitingFiltersSelection
+		session.State = models.StateWaitingFiltersSelection
 
 		if err := bot.sendFilterKeyKeyboard(chatID, session); err != nil {
 			return err
 		}
 
 	case data == returnTags:
-		session.State = StateWaitingTagsSelection
+		session.State = models.StateWaitingTagsSelection
 
 		if err := bot.updateTagKeyboard(chatID, session); err != nil {
 			return err
@@ -196,13 +198,13 @@ func (bot *BotClient) handleUntrackCallback(chatID int64, data string) error {
 	if resp.StatusCode() == http.StatusOK {
 		_, _ = bot.bot.Send(tgbotapi.NewMessage(chatID, "✅ Link untracked successfully."))
 
-		bot.clearSession(chatID)
+		bot.sessionManager.Clear(chatID)
 	}
 
 	return nil
 }
 
-func (bot *BotClient) finalizeListUntrackSession(chatID int64, session *UserSession) error {
+func (bot *BotClient) finalizeListUntrackSession(chatID int64, session *models.UserSession) error {
 	linksResponse, err := bot.scrapperClient.GetLinksWithResponse(context.TODO(),
 		&scrapper_client.GetLinksParams{TgChatId: chatID},
 	)
@@ -235,7 +237,7 @@ func (bot *BotClient) finalizeListUntrackSession(chatID int64, session *UserSess
 
 	message := tgbotapi.NewMessage(chatID, "")
 	message.Text += fmt.Sprintf("Found %d link(s):\n", len(selectedLinks))
-	message.ReplyMarkup = buildLinksKeyBoard(selectedLinks, session.Command)
+	message.ReplyMarkup = ui.BuildLinksKeyBoard(selectedLinks, session.Command)
 
 	if _, err = bot.bot.Send(message); err != nil {
 		return fmt.Errorf("unable to send message: %w", err)
@@ -243,7 +245,7 @@ func (bot *BotClient) finalizeListUntrackSession(chatID int64, session *UserSess
 
 	if session.Command == listCommand {
 		bot.deleteMessage(chatID, session.LastMessageID)
-		bot.clearSession(chatID)
+		bot.sessionManager.Clear(chatID)
 	}
 
 	return nil

@@ -2,12 +2,16 @@ package telebot
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"net/http"
+
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/models"
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/ui"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
 	scrapperclient "github.com/es-debug/backend-academy-2024-go-template/internal/api/openapi/v1/clients/scrapper"
+	clienterrors "github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/errors"
 )
 
 func (bot *BotClient) handleCommand(update *tgbotapi.Update) error {
@@ -15,7 +19,7 @@ func (bot *BotClient) handleCommand(update *tgbotapi.Update) error {
 
 	switch update.Message.Command() {
 	case "track":
-		bot.createTrackSession(chatID, StateWaitingURL)
+		bot.createTrackSession(chatID, models.StateWaitingURL)
 	case "untrack", "list":
 		return bot.createListUntrackSession(chatID, update.Message.Command())
 	case "start":
@@ -32,26 +36,22 @@ func (bot *BotClient) handleCommand(update *tgbotapi.Update) error {
 }
 
 func (bot *BotClient) handleStart(update *tgbotapi.Update) error {
+	const op = "handleStart"
+
 	chatID := update.Message.Chat.ID
 
-	resp, err := bot.scrapperClient.PostTgChatId(context.TODO(), chatID)
+	err := bot.apiService.RegisterUser(context.TODO(), chatID)
 	if err != nil {
-		return fmt.Errorf("unable to register user: %w", err)
-	}
+		if errors.Is(err, clienterrors.ErrUserAlreadyExists{}) {
+			message := tgbotapi.NewMessage(chatID, "😅 You are already registered! Feel free to use the bot.")
+			_, _ = bot.bot.Send(message)
 
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	if resp.StatusCode == http.StatusAlreadyReported {
-		message := tgbotapi.NewMessage(chatID, "😅 You are already registered! Feel free to use the bot.")
-		_, _ = bot.bot.Send(message)
-
-		return bot.handleHelp(chatID)
+			return bot.handleHelp(chatID)
+		}
+		return fmt.Errorf("%s: unable to register user: %w", op, err)
 	}
 
 	message := tgbotapi.NewMessage(chatID, "🥳 Successfully registered!")
-
 	if _, err := bot.bot.Send(message); err != nil {
 		return err
 	}
@@ -87,14 +87,13 @@ func (bot *BotClient) handleUnknown(chatID int64) error {
 	return nil
 }
 
-func (bot *BotClient) saveTracking(chatID int64, session *UserSession, saveType string) error {
-	_, err := bot.scrapperClient.PostLinksWithResponse(context.TODO(), &scrapperclient.PostLinksParams{
-		TgChatId: chatID,
-	}, scrapperclient.PostLinksJSONRequestBody{
-		Filters: &session.Filters,
-		Tags:    &session.Tags,
-		Link:    &session.URL,
-	})
+func (bot *BotClient) saveTracking(chatID int64, session *models.UserSession, saveType string) error {
+	linkData := models.LinkData{
+		URL:     session.URL,
+		Tags:    session.Tags,
+		Filters: session.Filters,
+	}
+	err := bot.apiService.SaveLink(context.TODO(), chatID, linkData)
 	if err != nil {
 		return fmt.Errorf("unable to save tracking: %w", err)
 	}
@@ -102,7 +101,7 @@ func (bot *BotClient) saveTracking(chatID int64, session *UserSession, saveType 
 	return bot.handleList(chatID, session, saveType)
 }
 
-func (bot *BotClient) handleList(chatID int64, session *UserSession, saveType string) error {
+func (bot *BotClient) handleList(chatID int64, session *models.UserSession, saveType string) error {
 	resp, err := bot.scrapperClient.GetLinksWithResponse(context.TODO(), &scrapperclient.GetLinksParams{
 		TgChatId: chatID,
 	})
@@ -116,7 +115,7 @@ func (bot *BotClient) handleList(chatID int64, session *UserSession, saveType st
 			chatID,
 			*session.LastMessageID,
 			"🚀 Tracking saved!",
-			buildLinksKeyBoard(*resp.JSON200.Links, "list"),
+			ui.BuildLinksKeyBoard(*resp.JSON200.Links, "list"),
 		)
 
 		if _, err := bot.bot.Send(edit); err != nil {
@@ -124,7 +123,7 @@ func (bot *BotClient) handleList(chatID int64, session *UserSession, saveType st
 		}
 	default:
 		message := tgbotapi.NewMessage(chatID, "🚀 Tracking saved!")
-		message.ReplyMarkup = buildLinksKeyBoard(*resp.JSON200.Links, "list")
+		message.ReplyMarkup = ui.BuildLinksKeyBoard(*resp.JSON200.Links, "list")
 
 		if _, err := bot.bot.Send(message); err != nil {
 			return fmt.Errorf("unable to send message: %w", err)
@@ -135,12 +134,12 @@ func (bot *BotClient) handleList(chatID int64, session *UserSession, saveType st
 }
 
 func (bot *BotClient) handleCancel(chatID int64) error {
-	if session := bot.getSession(chatID); session == nil {
+	if session := bot.sessionManager.Get(chatID); session == nil {
 		_, _ = bot.bot.Send(tgbotapi.NewMessage(chatID, "You don't have any active sessions"))
 		return nil
 	}
 
-	bot.clearSession(chatID)
+	bot.sessionManager.Clear(chatID)
 
 	if _, err := bot.bot.Send(tgbotapi.NewMessage(chatID, "🚮 Operation canceled")); err != nil {
 		return fmt.Errorf("failed to send message: %w", err)

@@ -5,21 +5,28 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"sync"
+	"slices"
+	"strings"
 	"time"
+
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/core"
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/service"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
 	"github.com/es-debug/backend-academy-2024-go-template/config"
-	scrapper_client "github.com/es-debug/backend-academy-2024-go-template/internal/api/openapi/v1/clients/scrapper"
+	scrapperclient "github.com/es-debug/backend-academy-2024-go-template/internal/api/openapi/v1/clients/scrapper"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/errors"
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/models"
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/session"
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/ui"
 )
 
 type BotClient struct {
 	bot            *tgbotapi.BotAPI
-	scrapperClient *scrapper_client.ClientWithResponses
-	sessions       map[int64]*UserSession
-	mu             sync.Mutex
+	scrapperClient *scrapperclient.ClientWithResponses
+	apiService     core.ScrapperService
+	sessionManager core.SessionManager
 }
 
 func NewBotClient(cfg *config.Config) (*BotClient, error) {
@@ -34,9 +41,9 @@ func NewBotClient(cfg *config.Config) (*BotClient, error) {
 		Timeout: 5 * time.Second,
 	}
 
-	scrapperClient, err := scrapper_client.NewClientWithResponses(
+	scrapperClient, err := scrapperclient.NewClientWithResponses(
 		fmt.Sprintf("http://%s:%d", cfg.Serving.Host, cfg.Serving.ScrapperPort),
-		scrapper_client.WithHTTPClient(client),
+		scrapperclient.WithHTTPClient(client),
 	)
 	if err != nil {
 		return nil, err
@@ -45,8 +52,8 @@ func NewBotClient(cfg *config.Config) (*BotClient, error) {
 	return &BotClient{
 		bot:            bot,
 		scrapperClient: scrapperClient,
-		sessions:       make(map[int64]*UserSession),
-		mu:             sync.Mutex{},
+		apiService:     service.NewScrapperClientWrapper(scrapperClient),
+		sessionManager: session.NewSessionManager(),
 	}, nil
 }
 
@@ -98,21 +105,21 @@ func (bot *BotClient) Run() {
 		}
 
 		chatID := update.Message.Chat.ID
-		session := bot.getSession(chatID)
+		userSession := bot.sessionManager.Get(chatID)
 
-		if session != nil {
+		if userSession != nil {
 			slog.Info("received message", slog.Any("message", update.Message.Text))
-			session.LastUserMessageID = &update.Message.MessageID
-			bot.setSession(chatID, session)
+			userSession.LastUserMessageID = &update.Message.MessageID
+			bot.sessionManager.Set(chatID, userSession)
 
-			err := bot.handleSession(&update, session)
+			err := bot.handleSession(&update, userSession)
 			if err != nil {
 				if errdefault.As(err, &errors.ErrInvalidURL{}) {
-					bot.handleInvalidURL(chatID, session)
+					bot.handleInvalidURL(chatID, userSession)
 					continue
 				}
 
-				slog.Error("unable to process the session", slog.Any("error", err))
+				slog.Error("unable to process the user session", slog.Any("error", err))
 				bot.errorMessage(chatID, err)
 			}
 
@@ -146,5 +153,83 @@ func (bot *BotClient) errorMessage(chatID int64, err error) {
 	}
 
 	_, _ = bot.bot.Send(message)
-	bot.clearSession(chatID)
+	bot.sessionManager.Clear(chatID)
+}
+
+func (bot *BotClient) updateTagKeyboard(chatID int64, session *models.UserSession) error {
+	newKeyboard := ui.BuildTagsKeyboard(session.AvailableTags, session.SelectedTags)
+
+	edit := tgbotapi.NewEditMessageReplyMarkup(
+		chatID,
+		*session.LastMessageID,
+		newKeyboard,
+	)
+
+	if _, err := bot.bot.Send(edit); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (bot *BotClient) sendFilterKeyKeyboard(chatID int64, session *models.UserSession) error {
+	availableFilters := []string{}
+
+	for _, filter := range session.AvailableFilters {
+		filterName := strings.Split(filter, ":")[0]
+		if !slices.Contains(availableFilters, filterName) {
+			availableFilters = append(availableFilters, filterName)
+		}
+	}
+
+	newKeyboard := ui.BuildFiltersKeyboard(availableFilters)
+
+	if session.LastMessageID == nil {
+		message := tgbotapi.NewMessage(chatID, "📋 Please, select filter name:")
+		message.ReplyMarkup = newKeyboard
+		sentMsg, err := bot.bot.Send(message)
+		session.LastMessageID = &sentMsg.MessageID
+
+		return err
+	}
+
+	edit := tgbotapi.NewEditMessageTextAndMarkup(
+		chatID,
+		*session.LastMessageID,
+		"📋 Please, select filter name:",
+		newKeyboard,
+	)
+
+	if _, err := bot.bot.Send(edit); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (bot *BotClient) sendFilterValueKeyboard(chatID int64, session *models.UserSession) error {
+	availableFilters := []string{}
+
+	for _, filter := range session.AvailableFilters {
+		keyAndValue := strings.Split(filter, ":")
+		if keyAndValue[0] == session.CurrentFilterName &&
+			!slices.Contains(availableFilters, keyAndValue[1]) {
+			availableFilters = append(availableFilters, keyAndValue[1])
+		}
+	}
+
+	newKeyboard := ui.BuildFiltersValueKeyboard(availableFilters)
+
+	edit := tgbotapi.NewEditMessageTextAndMarkup(
+		chatID,
+		*session.LastMessageID,
+		"📋 Please, select filter value:",
+		newKeyboard,
+	)
+
+	if _, err := bot.bot.Send(edit); err != nil {
+		return err
+	}
+
+	return nil
 }

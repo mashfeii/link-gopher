@@ -23,7 +23,7 @@ func (bot *BotClient) handleAuthorizationCheck(chatID int64) (*scrapper_client.G
 	}
 
 	if resp.StatusCode() == http.StatusUnauthorized {
-		return nil, errors.NewErrUserNotFound()
+		return nil, errors.NewErrUserNotFound(chatID)
 	}
 
 	return resp, nil
