@@ -171,3 +171,13 @@ func NewErrNoLinksFound(chatID int64) error {
 func (e ErrNoLinksFound) Error() string {
 	return fmt.Sprintf("no links found for chatID %d", e.ChatID)
 }
+
+type ErrInvalidSessionType struct{}
+
+func NewErrInvalidSessionType() error {
+	return ErrInvalidSessionType{}
+}
+
+func (e ErrInvalidSessionType) Error() string {
+	return "invalid session type"
+}

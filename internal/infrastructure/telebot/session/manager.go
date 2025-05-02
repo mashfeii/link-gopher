@@ -7,38 +7,51 @@ import (
 )
 
 type Manager struct {
-	sessions map[int64]*models.UserSession
-	mu       sync.Mutex
+	sessions map[int64]models.Session
+	mu       sync.RWMutex
 }
 
 func NewSessionManager() *Manager {
 	return &Manager{
-		sessions: make(map[int64]*models.UserSession),
+		sessions: make(map[int64]models.Session),
 	}
 }
 
-func (s *Manager) Get(chatID int64) *models.UserSession {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *Manager) Get(chatID int64) models.Session {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
-	session, exists := s.sessions[chatID]
-	if !exists {
-		return nil
-	}
-
-	return session
+	return s.sessions[chatID]
 }
 
-func (s *Manager) Set(chatID int64, session *models.UserSession) {
+func (s *Manager) GetTrack(chatID int64) (*models.TrackSession, bool) {
+	if session := s.Get(chatID); session != nil {
+		if session, ok := session.(*models.TrackSession); ok {
+			return session, true
+		}
+	}
+
+	return nil, false
+}
+
+func (s *Manager) GetListUntrack(chatID int64) (*models.ListUntrackSession, bool) {
+	if session := s.Get(chatID); session != nil {
+		if session, ok := session.(*models.ListUntrackSession); ok {
+			return session, true
+		}
+	}
+
+	return nil, false
+}
+
+func (s *Manager) Set(chatID int64, session models.Session) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	s.sessions[chatID] = session
 }
 
 func (s *Manager) Clear(chatID int64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	delete(s.sessions, chatID)
 }

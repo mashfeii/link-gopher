@@ -37,7 +37,7 @@ func (s *API) PostUpdates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	botClient := s.deps.TgClient.GetBot()
+	botClient := s.deps.TgClient.GetBotAPI()
 	message := tgbotapi.NewMessage(requestBody.TgChatID,
 		fmt.Sprintf("New update from your favorite website: %s\nUpdate: %s", requestBody.URL, requestBody.Description),
 	)

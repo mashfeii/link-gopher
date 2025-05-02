@@ -7,6 +7,7 @@ import (
 
 	scrapperclient "github.com/es-debug/backend-academy-2024-go-template/internal/api/openapi/v1/clients/scrapper"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/errors"
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/core"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/models"
 )
 
@@ -20,8 +21,9 @@ func NewScrapperClientWrapper(client scrapperclient.ClientWithResponsesInterface
 	}
 }
 
-func (s *ScrapperClientWrapper) RegisterUser(ctx context.Context, chatID int64) error {
+func (s *ScrapperClientWrapper) RegisterUser(ctx context.Context) error {
 	const op = "scrapperClientWrapper.RegisterUser"
+	chatID := ctx.Value(core.ContextKeyChatID).(int64)
 
 	resp, err := s.client.PostTgChatIdWithResponse(ctx, chatID)
 	if err != nil {
@@ -35,8 +37,25 @@ func (s *ScrapperClientWrapper) RegisterUser(ctx context.Context, chatID int64) 
 	return nil
 }
 
-func (s *ScrapperClientWrapper) SaveLink(ctx context.Context, chatID int64, linkData models.LinkData) error {
+func (s *ScrapperClientWrapper) GetUser(ctx context.Context) (bool, error) {
+	const op = "scrapperClientWrapper.GetUser"
+	chatID := ctx.Value(core.ContextKeyChatID).(int64)
+
+	resp, err := s.client.GetLinksWithResponse(ctx, &scrapperclient.GetLinksParams{TgChatId: chatID})
+	if err != nil {
+		return false, fmt.Errorf("%s: unable to get user: %w", op, err)
+	}
+
+	if resp.StatusCode() == http.StatusUnauthorized {
+		return false, errors.NewErrUserNotFound(chatID)
+	}
+
+	return true, nil
+}
+
+func (s *ScrapperClientWrapper) SaveLink(ctx context.Context, linkData models.LinkData) error {
 	const op = "scrapperClientWrapper.SaveLink"
+	chatID := ctx.Value(core.ContextKeyChatID).(int64)
 
 	params := &scrapperclient.PostLinksParams{
 		TgChatId: chatID,
@@ -59,8 +78,9 @@ func (s *ScrapperClientWrapper) SaveLink(ctx context.Context, chatID int64, link
 	return nil
 }
 
-func (s *ScrapperClientWrapper) GetLinks(ctx context.Context, chatID int64) ([]models.LinkData, error) {
+func (s *ScrapperClientWrapper) GetLinks(ctx context.Context) ([]models.LinkData, error) {
 	const op = "scrapperClientWrapper.GetLinks"
+	chatID := ctx.Value(core.ContextKeyChatID).(int64)
 
 	params := &scrapperclient.GetLinksParams{
 		TgChatId: chatID,
@@ -87,8 +107,10 @@ func (s *ScrapperClientWrapper) GetLinks(ctx context.Context, chatID int64) ([]m
 	return links, nil
 }
 
-func (s *ScrapperClientWrapper) DeleteLink(ctx context.Context, chatID int64, url string) error {
+func (s *ScrapperClientWrapper) DeleteLink(ctx context.Context) error {
 	const op = "scrapperClientWrapper.DeleteLink"
+	chatID := ctx.Value(core.ContextKeyChatID).(int64)
+	url := ctx.Value(core.ContextLinkURL).(string)
 
 	params := &scrapperclient.DeleteLinksParams{
 		TgChatId: chatID,
