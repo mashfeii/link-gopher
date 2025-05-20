@@ -181,3 +181,15 @@ func NewErrInvalidSessionType() error {
 func (e ErrInvalidSessionType) Error() string {
 	return "invalid session type"
 }
+
+type ErrErrUnknownHandler struct {
+	Request string
+}
+
+func NewErrErrUnknownHandler(request string) error {
+	return ErrErrUnknownHandler{Request: request}
+}
+
+func (e ErrErrUnknownHandler) Error() string {
+	return fmt.Sprintf("unknown handler for request %s", e.Request)
+}
