@@ -35,10 +35,12 @@ type TrackSession struct {
 type ListUntrackSession struct {
 	BaseSession
 
+	Command CommandName
+
 	AvailableTags []string
 	SelectedTags  []string
 
-	AvailableFilters []string
+	AvailableFilters map[string][]string
 	FilterName       string
 	FilterValue      string
 }

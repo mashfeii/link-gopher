@@ -1,8 +1,7 @@
 package models
 
 type (
-	State       string
-	SessionType string
+	State string
 )
 
 const (
