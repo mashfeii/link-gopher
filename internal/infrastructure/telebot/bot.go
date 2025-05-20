@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/core"
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/handlers/callback"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/handlers/commands"
 	sessionHandlers "github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/handlers/session"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/messaging"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/middleware"
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/models"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/router"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/service"
 
@@ -28,10 +30,6 @@ type BotClient struct {
 	apiService     core.ScrapperService
 	sessionManager core.SessionManager
 	messageService core.MessageService
-}
-
-func (bot *BotClient) GetBotAPI() *tgbotapi.BotAPI {
-	return bot.bot
 }
 
 func NewBotClient(cfg *config.Config) (*BotClient, error) {
@@ -79,26 +77,13 @@ func NewBotClient(cfg *config.Config) (*BotClient, error) {
 		apiService:     apiService,
 		sessionManager: sessionManager,
 		messageService: messageService,
+		router: setupRouting(
+			apiWrapper,
+			apiService,
+			messageService,
+			sessionManager,
+		),
 	}
-
-	// Register defined handlers for commands
-	baseRouter := router.NewRouter(apiWrapper, sessionManager)
-	withAuth := middleware.WithAuth(apiService, messageService)
-	baseRouter.RegisterCommand(commands.NewStartHandler(apiWrapper, apiService, messageService))
-	baseRouter.RegisterCommand(commands.NewHelpHandler(apiWrapper, messageService))
-	baseRouter.RegisterCommand(commands.NewCancelHandler(apiWrapper, sessionManager, messageService))
-
-	// Register defined protected handlers for commands
-	baseRouter.RegisterCommand(
-		commands.NewTrackHandler(apiWrapper, apiService, messageService, sessionManager),
-		withAuth,
-	)
-
-	// Register defined handlers for sessions
-	baseRouter.RegisterSessionHandler(sessionHandlers.NewTrackInputURL(messageService, sessionManager, apiService))
-	baseRouter.RegisterSessionHandler(sessionHandlers.NewTrackInputTags(messageService, sessionManager))
-
-	bot.router = baseRouter
 
 	return bot, nil
 }
@@ -112,7 +97,7 @@ func (bot *BotClient) Run() {
 		slog.String("bot_id", fmt.Sprintf("%d", bot.bot.Self.ID)),
 	)
 
-	if err := bot.router.Init(); err != nil {
+	if err := bot.router.RegisterWithTelegram(); err != nil {
 		slog.Error("failed to initialize router", slog.String("operation", op), slog.Any("error", err))
 		return
 	}
@@ -125,20 +110,158 @@ func (bot *BotClient) Run() {
 	ctx := context.Background()
 
 	for update := range updates {
+		var chatID int64
+
+		if update.Message != nil {
+			chatID = update.Message.Chat.ID
+		} else {
+			chatID = update.CallbackQuery.From.ID
+		}
+
 		slog.Info("received update",
 			slog.String("operation", op),
-			slog.String("chat_id", fmt.Sprintf("%d", update.Message.Chat.ID)),
+			slog.Int64("chat_id", chatID),
 			slog.Bool("callback_query", update.CallbackQuery != nil),
-			slog.Bool("command", update.Message.IsCommand()),
 			slog.Bool("message", update.Message != nil),
 		)
 
-		if err := bot.router.Handle(ctx, &update); err != nil {
-			if _, err := bot.messageService.SendError(update.Message.Chat.ID, err); err != nil {
+		if err := bot.router.Handle(ctx, &update, chatID); err != nil {
+			if _, err := bot.messageService.SendError(chatID, err); err != nil {
 				slog.Error("failed to send error message", slog.String("operation", op), slog.Any("error", err))
 			}
 		}
 
 		slog.Info("update handled")
 	}
+}
+
+func (bot *BotClient) GetBotAPI() *tgbotapi.BotAPI {
+	return bot.bot
+}
+
+func setupCommands(baseRouter *router.Router) *router.Router {
+	baseRouter.RegisterCommand(
+		models.CommandNameStart,
+		"user registration",
+		&commands.StartHandler{},
+	)
+	baseRouter.RegisterCommand(
+		models.CommandNameHelp,
+		"displays a list of available commands",
+		&commands.HelpHandler{},
+	)
+	baseRouter.RegisterCommand(
+		models.CommandNameCancel,
+		"cancel the current operation (session)",
+		&commands.CancelHandler{},
+		middleware.SessionMiddleware(),
+		middleware.AuthMiddleware(),
+	)
+	baseRouter.RegisterCommand(
+		models.CommandNameTrack,
+		"start tracking a link for changes",
+		&commands.TrackHandler{},
+		middleware.AuthMiddleware(),
+	)
+	baseRouter.RegisterCommand(
+		models.CommandNameList,
+		"list all tracked links",
+		&commands.ListHandler{},
+		middleware.AuthMiddleware(),
+	)
+
+	return baseRouter
+}
+
+func setupRouting(
+	apiWrapper *tgbotapi.BotAPI,
+	apiService core.ScrapperService,
+	messageService core.MessageService,
+	sessionManager core.SessionManager,
+) *router.Router {
+	// Register defined handlers for commands
+	baseRouter := router.NewRouter(apiWrapper, sessionManager, messageService, apiService)
+
+	baseRouter = setupCommands(baseRouter)
+
+	// Session handlers for /track command
+	baseRouter.RegisterSessionHandler(
+		models.StateTrackInputURL,
+		&sessionHandlers.TrackInputURL{},
+		middleware.TrackSessionMiddleware(),
+	)
+	baseRouter.RegisterSessionHandler(
+		models.StateTrackInputFilters,
+		&sessionHandlers.TrackInputFilters{},
+		middleware.TrackSessionMiddleware(),
+	)
+	baseRouter.RegisterSessionHandler(
+		models.StateTrackInputTags,
+		&sessionHandlers.TrackInputTags{},
+		middleware.TrackSessionMiddleware(),
+	)
+
+	baseRouter.RegisterCallbackHandler(
+		models.CallbackReturnTags,
+		&callback.TrackReturnTags{},
+		middleware.TrackSessionMiddleware(),
+	)
+	baseRouter.RegisterCallbackHandler(
+		models.CallbackReturnURL,
+		&callback.TrackReturnURL{},
+		middleware.TrackSessionMiddleware(),
+	)
+	baseRouter.RegisterCallbackHandler(
+		models.CallbackSkipTags,
+		&callback.TrackSkipTags{},
+		middleware.TrackSessionMiddleware(),
+	)
+	baseRouter.RegisterCallbackHandler(
+		models.CallbackSkipFilters,
+		&callback.TrackSkipFilters{},
+		middleware.TrackSessionMiddleware(),
+	)
+	baseRouter.RegisterCallbackHandler(
+		models.CallbackConfirmTrack,
+		&callback.TrackConfirm{},
+		middleware.TrackSessionMiddleware(),
+	)
+	baseRouter.RegisterCallbackHandler(
+		models.CallbackCancelTrack,
+		&callback.TrackCancel{},
+		middleware.TrackSessionMiddleware(),
+	)
+
+	baseRouter.RegisterCallbackHandler(
+		models.PrefixTagToggle,
+		&callback.ListUntrackTagToggle{},
+		middleware.ListUntrackSessionMiddleware(),
+	)
+	baseRouter.RegisterCallbackHandler(
+		models.PrefixSelectKey,
+		&callback.ListUntrackSelectKey{},
+		middleware.ListUntrackSessionMiddleware(),
+	)
+	baseRouter.RegisterCallbackHandler(
+		models.PrefixSelectValue,
+		&callback.ListUntrackSelectValue{},
+		middleware.ListUntrackSessionMiddleware(),
+	)
+	baseRouter.RegisterCallbackHandler(
+		models.CallbackListDoneTags,
+		&callback.ListUntrackTagsDone{},
+		middleware.ListUntrackSessionMiddleware(),
+	)
+	baseRouter.RegisterCallbackHandler(
+		models.CallbackListReturnTags,
+		&callback.ListUntrackReturnTags{},
+		middleware.ListUntrackSessionMiddleware(),
+	)
+	baseRouter.RegisterCallbackHandler(
+		models.CallbackListSkipFilters,
+		&callback.ListUntrackSkipFilters{},
+		middleware.ListUntrackSessionMiddleware(),
+	)
+
+	return baseRouter
 }

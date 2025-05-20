@@ -3,27 +3,22 @@ package ui
 import (
 	"fmt"
 	"slices"
+	"sort"
 
 	scrapperclient "github.com/es-debug/backend-academy-2024-go-template/internal/api/openapi/v1/clients/scrapper"
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/models"
 	"github.com/es-debug/backend-academy-2024-go-template/pkg"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-const (
-	untrackPrefix         = "untrack "
-	tagTogglePrefix       = "tag_toggle "
-	selectKeyPrefix       = "select_key"
-	selectValuePrefix     = "select_value"
-	doneTagsCallback      = "done_tags"
-	skipFiltersCallback   = "skip_filters"
-	returnTagsCallback    = "return_tags"
-	returnFiltersCallback = "return_filters"
-)
-
 type InlineKeyboardBuilder struct {
 	buttonsPerRow int
 	rows          [][]tgbotapi.InlineKeyboardButton
+}
+
+type ReplyKeyboardBuilder struct {
+	buttons [][]tgbotapi.KeyboardButton
 }
 
 func NewInlineKeyboardBuilder() *InlineKeyboardBuilder {
@@ -33,6 +28,27 @@ func NewInlineKeyboardBuilder() *InlineKeyboardBuilder {
 	return &InlineKeyboardBuilder{
 		rows: initialKeyboard,
 	}
+}
+
+func NewReplyKeyboardBuilder() *ReplyKeyboardBuilder {
+	initialKeyboard := make([][]tgbotapi.KeyboardButton, 1)
+	initialKeyboard[0] = make([]tgbotapi.KeyboardButton, 0)
+
+	return &ReplyKeyboardBuilder{
+		buttons: initialKeyboard,
+	}
+}
+
+func (b *ReplyKeyboardBuilder) Button(text string) *ReplyKeyboardBuilder {
+	b.buttons = append(b.buttons, []tgbotapi.KeyboardButton{
+		{Text: text},
+	})
+
+	return b
+}
+
+func (b *ReplyKeyboardBuilder) Build() tgbotapi.ReplyKeyboardMarkup {
+	return tgbotapi.NewOneTimeReplyKeyboard(b.buttons...)
 }
 
 func (b *InlineKeyboardBuilder) SetButtonsPerRow(buttonsPerRow int) *InlineKeyboardBuilder {
@@ -78,6 +94,14 @@ func (b *InlineKeyboardBuilder) Build() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(b.rows...)
 }
 
+func GetBackSkipKeyboard(backCallback, skipCallback string) tgbotapi.InlineKeyboardMarkup {
+	return NewInlineKeyboardBuilder().
+		SetButtonsPerRow(2).
+		DataButton(IconArrowLeft+" Step back", backCallback).
+		DataButton("Skip "+IconArrowRight, skipCallback).
+		Build()
+}
+
 func BuildLinksKeyBoard(links []scrapperclient.LinkResponse, linkType string) tgbotapi.InlineKeyboardMarkup {
 	builder := NewInlineKeyboardBuilder().SetButtonsPerRow(2)
 
@@ -90,7 +114,7 @@ func BuildLinksKeyBoard(links []scrapperclient.LinkResponse, linkType string) tg
 		default:
 			builder.DataButton(
 				shortenURL,
-				fmt.Sprintf("%s %s", untrackPrefix, *link.Url),
+				fmt.Sprintf("%s%s", models.PrefixUntrack, *link.Url),
 			)
 		}
 	}
@@ -101,20 +125,22 @@ func BuildLinksKeyBoard(links []scrapperclient.LinkResponse, linkType string) tg
 func BuildTagsKeyboard(tags, selectedTags []string) tgbotapi.InlineKeyboardMarkup {
 	builder := NewInlineKeyboardBuilder().SetButtonsPerRow(2)
 
+	sort.Strings(tags)
+
 	for _, tag := range tags {
-		emoji := "◻️"
+		emoji := IconCheckbox
 		if slices.Contains(selectedTags, tag) {
-			emoji = "✅"
+			emoji = IconChecked
 		}
 
 		builder.DataButton(
 			fmt.Sprintf("%s %s", emoji, tag),
-			fmt.Sprintf("%s %s", tagTogglePrefix, tag),
+			fmt.Sprintf("%s%s", models.PrefixTagToggle, tag),
 		)
 	}
 
 	builder.SetButtonsPerRow(1).DataButton(
-		"✅ Done", doneTagsCallback,
+		"Done", models.CallbackListDoneTags,
 	)
 
 	return builder.Build()
@@ -124,35 +150,35 @@ func BuildStringsKeyboard(variants []string, data string) tgbotapi.InlineKeyboar
 	builder := NewInlineKeyboardBuilder().SetButtonsPerRow(2)
 
 	for _, variant := range variants {
-		builder.DataButton(variant, fmt.Sprintf("%s %s", data, variant))
+		builder.DataButton(variant, fmt.Sprintf("%s%s", data, variant))
 	}
 
 	return builder.Build()
 }
 
 func BuildFiltersKeyboard(variants []string) tgbotapi.InlineKeyboardMarkup {
-	markup := BuildStringsKeyboard(variants, selectKeyPrefix)
+	markup := BuildStringsKeyboard(variants, models.PrefixSelectKey)
 
-	skipFilters := skipFiltersCallback
-	returnTags := returnTagsCallback
+	skipFilters := models.CallbackListSkipFilters
+	returnTags := models.CallbackListReturnTags
 
 	markup.InlineKeyboard = append(markup.InlineKeyboard, []tgbotapi.InlineKeyboardButton{
-		{Text: "◀️ Step back", CallbackData: &returnTags},
-		{Text: "🚫 Skip", CallbackData: &skipFilters},
+		{Text: IconArrowLeft + " Step back", CallbackData: &returnTags},
+		{Text: "Skip " + IconArrowRight, CallbackData: &skipFilters},
 	})
 
 	return markup
 }
 
 func BuildFiltersValueKeyboard(variants []string) tgbotapi.InlineKeyboardMarkup {
-	markup := BuildStringsKeyboard(variants, selectValuePrefix)
+	markup := BuildStringsKeyboard(variants, models.PrefixSelectValue)
 
-	skipFilters := skipFiltersCallback
-	returnFilters := returnFiltersCallback
+	skipFilters := models.CallbackListSkipFilters
+	returnFilters := models.CallbackListReturnFilters
 
 	markup.InlineKeyboard = append(markup.InlineKeyboard, []tgbotapi.InlineKeyboardButton{
-		{Text: "◀️ Step back", CallbackData: &returnFilters},
-		{Text: "🚫 Skip", CallbackData: &skipFilters},
+		{Text: IconArrowLeft + " Step back", CallbackData: &returnFilters},
+		{Text: "Skip " + IconArrowRight, CallbackData: &skipFilters},
 	})
 
 	return markup
