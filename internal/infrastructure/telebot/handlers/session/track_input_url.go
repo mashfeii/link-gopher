@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/errors"
-	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/core"
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/handlers"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/models"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/ui"
 	"github.com/es-debug/backend-academy-2024-go-template/pkg"
@@ -14,133 +13,177 @@ import (
 )
 
 type TrackInputURL struct {
-	messageService  core.MessageService
-	sessionService  core.SessionManager
-	scrapperService core.ScrapperService
+	hctx *handlers.HandlerContext
 }
 
-func NewTrackInputURL(
-	messageService core.MessageService,
-	sessionService core.SessionManager,
-	scrapperService core.ScrapperService,
-) *TrackInputURL {
-	return &TrackInputURL{
-		messageService:  messageService,
-		sessionService:  sessionService,
-		scrapperService: scrapperService,
-	}
-}
-
-func (h *TrackInputURL) CanHandleState(state models.State) bool {
-	return state == models.StateTrackInputURL
-}
-
-func (h *TrackInputURL) HandleSession(
+func (h *TrackInputURL) Handle(
 	ctx context.Context,
-	update *tgbotapi.Update,
-	session models.Session,
+	hctx *handlers.HandlerContext,
 ) error {
 	const op = "handlers.TrackInputURL.HandleSession"
 
-	// Check if the session is of type TrackSession
-	trackSession, ok := session.(*models.TrackSession)
-	if !ok {
-		return fmt.Errorf("%s: %w", op, errors.NewErrInvalidSessionType())
+	h.hctx = hctx
+
+	trackSession := hctx.Session.(*models.TrackSession)
+
+	URL := hctx.Update.Message.Text
+	trackSession.LastUserMessageID = &hctx.Update.Message.MessageID
+
+	logger := h.createLogger(op, URL, hctx.ChatID)
+	serviceContext := context.WithValue(ctx, models.ContextKeyChatID, hctx.ChatID)
+
+	if ok, err := h.checkForDuplicateLink(serviceContext, trackSession, URL, hctx.ChatID, logger); !ok || err != nil {
+		return err
 	}
 
-	// Update the last message from user
-	trackSession.LastUserMessageID = &update.Message.MessageID
-	// Retrieve the user ID from the update and entered URL
-	URL := update.Message.Text
-	chatID := update.Message.Chat.ID
-	serviceContext := context.WithValue(ctx, core.ContextKeyChatID, chatID)
+	if ok, err := h.validateURL(URL, trackSession, hctx.ChatID, logger); !ok || err != nil {
+		return err
+	}
 
-	// Check if the user exists
-	links, err := h.scrapperService.GetLinks(serviceContext)
+	if err := h.updateUIAndSession(hctx.ChatID, URL, trackSession, logger); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *TrackInputURL) createLogger(op, url string, chatID int64) *slog.Logger {
+	return slog.With(
+		slog.String("operation", op),
+		slog.String("url", url),
+		slog.Int64("chatID", chatID),
+	)
+}
+
+func (h *TrackInputURL) checkForDuplicateLink(
+	ctx context.Context,
+	trackSession *models.TrackSession,
+	url string,
+	chatID int64,
+	logger *slog.Logger,
+) (bool, error) {
+	const op = "handlers.TrackInputURL.checkForDuplicateLink"
+
+	links, err := h.hctx.ScrapperService.GetLinks(ctx)
 	if err != nil {
-		slog.Error("failed to get links", slog.String("operation", op), slog.String("url", URL), slog.Any("error", err))
-		return fmt.Errorf("%s: failed to get links: %w", op, err)
+		logger.Error("failed to get links", slog.Any("error", err))
+		return false, fmt.Errorf("%s: failed to get links: %w", op, err)
 	}
 
-	// Check for link duplicate
 	for _, link := range links {
-		if link.URL != URL {
+		if link.URL != url {
 			continue
 		}
 
-		slog.Warn("duplicate URL", slog.String("operation", op), slog.String("url", URL))
+		logger.Warn("Duplicate link found")
 
-		_, err := h.messageService.EditText(
-			chatID,
-			*trackSession.LastBotMessageID,
-			"❗️ This link already exists in your list. Please enter a different URL.",
-		)
-		if err != nil {
-			slog.Error("failed to edit message", slog.String("operation", op), slog.String("url", URL), slog.Any("error", err))
-			return fmt.Errorf("%s: failed to edit message: %w", op, err)
-		}
-
-		if _, err := h.messageService.DeleteMessage(chatID, *trackSession.LastUserMessageID); err != nil {
-			slog.Warn("failed to delete message", slog.String("operation", op), slog.String("url", URL), slog.Any("error", err))
-			return fmt.Errorf("%s: failed to delete message: %w", op, err)
-		}
-
-		return nil
+		return false, h.handleDuplicateLink(chatID, trackSession, logger)
 	}
 
-	// Validate link format
-	_, _, gitErr := pkg.ValidateGithubURL(URL)
-	_, stackErr := pkg.ValidateStackOverflowURL(URL)
+	return true, nil
+}
+
+func (h *TrackInputURL) handleDuplicateLink(
+	chatID int64,
+	trackSession *models.TrackSession,
+	logger *slog.Logger,
+) error {
+	const op = "handlers.TrackInputURL.handleDuplicateLink"
+
+	_, err := h.hctx.MessageService.EditText(
+		chatID,
+		*trackSession.LastBotMessageID,
+		"❗️ This link already exists in your list. Please enter a different URL.",
+	)
+	if err != nil {
+		logger.Error("failed to edit message", slog.Any("error", err))
+		return fmt.Errorf("%s: failed to edit message: %w", op, err)
+	}
+
+	if _, err := h.hctx.MessageService.DeleteMessage(chatID, *trackSession.LastUserMessageID); err != nil {
+		logger.Warn("failed to delete message", slog.Any("error", err))
+		return fmt.Errorf("%s: failed to delete message: %w", op, err)
+	}
+
+	return nil
+}
+
+func (h *TrackInputURL) validateURL(
+	url string,
+	trackSession *models.TrackSession,
+	chatID int64,
+	logger *slog.Logger,
+) (bool, error) {
+	const op = "handlers.TrackInputURL.validateURL"
+
+	_, _, gitErr := pkg.ValidateGithubURL(url)
+	_, stackErr := pkg.ValidateStackOverflowURL(url)
 
 	if gitErr != nil && stackErr != nil {
-		slog.Warn("invalid URL format", slog.String("operation", op), slog.String("url", URL), slog.Any("error", gitErr))
-
-		_, err := h.messageService.EditText(
-			chatID,
-			*trackSession.LastBotMessageID,
-			"❗️ Invalid URL format. Please provide a valid GitHub Repo or StackOverflow Question URL.",
-		)
-		if err != nil {
-			slog.Error("failed to edit message", slog.String("operation", op), slog.String("url", URL), slog.Any("error", err))
-			return fmt.Errorf("%s: failed to edit message: %w", op, err)
-		}
-
-		if _, err := h.messageService.DeleteMessage(chatID, *trackSession.LastUserMessageID); err != nil {
-			slog.Warn("failed to delete message", slog.String("operation", op), slog.String("url", URL), slog.Any("error", err))
-			return fmt.Errorf("%s: failed to delete message: %w", op, err)
-		}
-
-		return nil
+		logger.Warn("invalid URL format", slog.String("opeartion", op), slog.Any("error", stackErr))
+		return false, h.handleInvalidURL(chatID, trackSession, logger)
 	}
 
-	// Update UI
-	keyboard := ui.NewInlineKeyboardBuilder().
-		SetButtonsPerRow(2).
-		DataButton("◀️ Step back", core.CallbackReturnURL).
-		DataButton("🚫 Skip", core.CallbackSkipTags).
-		Build()
+	return true, nil
+}
 
-	message, err := h.messageService.Send(
+func (h *TrackInputURL) handleInvalidURL(
+	chatID int64,
+	trackSession *models.TrackSession,
+	logger *slog.Logger,
+) error {
+	const op = "handlers.TrackInputURL.handleInvalidURL"
+
+	_, err := h.hctx.MessageService.EditText(
 		chatID,
-		"📋 Enter tags (_space-separated_):",
+		*trackSession.LastBotMessageID,
+		fmt.Sprintf("%s Invalid URL. Try another one:\n%s github.com/golang/go\n%s stackoverflow.com/questions/17333517/how-to-compile-a-program-in-go-language", //nolint:lll // ignore line length
+			ui.IconCross,
+			ui.IconChecked,
+			ui.IconChecked,
+		),
+	)
+	if err != nil {
+		logger.Error("failed to edit message", slog.Any("error", err))
+		return fmt.Errorf("%s: failed to edit message: %w", op, err)
+	}
+
+	if _, err := h.hctx.MessageService.DeleteMessage(chatID, *trackSession.LastUserMessageID); err != nil {
+		logger.Warn("failed to delete message", slog.Any("error", err))
+		return fmt.Errorf("%s: failed to delete message: %w", op, err)
+	}
+
+	return nil
+}
+
+func (h *TrackInputURL) updateUIAndSession(
+	chatID int64,
+	url string,
+	trackSession *models.TrackSession,
+	logger *slog.Logger,
+) error {
+	const op = "handlers.TrackInputURL.updateUIAndSession"
+
+	message, err := h.hctx.MessageService.Send(
+		chatID,
+		ui.IconTag+" Enter tags (_space-separated_):",
 		&models.SendMessageOptions{
 			ParseMode:   tgbotapi.ModeMarkdown,
-			ReplyMarkup: keyboard,
+			ReplyMarkup: ui.GetBackSkipKeyboard(models.CallbackReturnURL, models.CallbackSkipTags),
 		},
 	)
 	if err != nil {
-		slog.Error("failed to send message", slog.String("operation", op), slog.String("url", URL), slog.Any("error", err))
+		logger.Error("failed to send message", slog.Any("error", err))
 		return fmt.Errorf("%s: failed to send message: %w", op, err)
 	}
 
-	// Update current session
-	trackSession.URL = URL
+	trackSession.URL = url
 	trackSession.State = models.StateTrackInputTags
 	trackSession.LastBotMessageID = &message.MessageID
 
-	slog.Info("Saved the link for track session", slog.String("operation", op), slog.String("url", URL), slog.Int64("chatID", chatID))
+	logger.Info("Get the link for track session")
 
-	h.sessionService.Set(chatID, trackSession)
+	h.hctx.SessionService.Set(chatID, trackSession)
 
 	return nil
 }

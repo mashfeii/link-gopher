@@ -15,8 +15,10 @@ const (
 )
 
 const (
-	CallbackReturnTags  = "return_tags"
-	CallbackSkipFilters = "skip_filters"
-	CallbackReturnURL   = "return_url"
-	CallbackSkipTags    = "skip_tags"
+	CallbackReturnTags   = "return_tags"
+	CallbackSkipFilters  = "skip_filters"
+	CallbackReturnURL    = "return_url"
+	CallbackSkipTags     = "skip_tags"
+	CallbackConfirmTrack = "confirm_track"
+	CallbackCancelTrack  = "cancel_track"
 )

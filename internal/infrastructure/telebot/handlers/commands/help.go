@@ -1,22 +1,29 @@
 package commands
 
 import (
-	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/core"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"context"
+	"fmt"
+
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/handlers"
 )
 
-type HelpHandler struct {
-	*BaseCommandHandler
-	messageService core.MessageService
-}
+type HelpHandler struct{}
 
-func NewHelpHandler(api *tgbotapi.BotAPI, messageService core.MessageService) *HelpHandler {
-	return &HelpHandler{
-		BaseCommandHandler: NewBaseCommandHandler(api, core.CommandNameHelp),
-		messageService:     messageService,
+func (h *HelpHandler) Handle(_ context.Context, hctx *handlers.HandlerContext) error {
+	commands, err := hctx.BotAPI.GetMyCommands()
+	if err != nil {
+		return fmt.Errorf("failed to get bot commands: %w", err)
 	}
-}
 
-func (help *HelpHandler) GetDescription() string {
-	return "displays a list of available commands"
+	var helpMessage string
+	for _, command := range commands {
+		helpMessage += fmt.Sprintf("/%s - %s\n", command.Command, command.Description)
+	}
+
+	_, err = hctx.MessageService.Send(hctx.ChatID, helpMessage, nil)
+	if err != nil {
+		return fmt.Errorf("failed to send help message: %w", err)
+	}
+
+	return nil
 }
