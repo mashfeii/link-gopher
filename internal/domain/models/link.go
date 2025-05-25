@@ -5,6 +5,14 @@ import (
 	"time"
 )
 
+type LinkType string
+
+const (
+	LinkTypeGithub        LinkType = "github.com"
+	LinkTypeStackOverflow LinkType = "stackoverflow.com"
+	LinkTypeUnknown       LinkType = "unknown"
+)
+
 type Link struct {
 	LinkID     int64     `json:"link_id"`
 	ChatID     int64     `json:"chat_id"`
@@ -16,7 +24,11 @@ func (l *Link) SetLastUpdate(update time.Time) {
 	l.LastUpdate = update
 }
 
-func (l *Link) GetType() string {
-	parsed, _ := url.Parse("https://" + l.URL)
-	return parsed.Host
+func (l *Link) GetType() LinkType {
+	parsed, err := url.Parse("https://" + l.URL)
+	if err != nil {
+		return LinkTypeUnknown
+	}
+
+	return LinkType(parsed.Host)
 }

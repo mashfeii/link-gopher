@@ -2,31 +2,48 @@ package stackoverflow
 
 import (
 	"time"
+
+	"github.com/es-debug/backend-academy-2024-go-template/internal/domain/models"
 )
 
-type SOQuestionResponse struct {
-	Items []struct {
-		IsAnswered       bool  `json:"is_answered"`
-		LastActivityDate int64 `json:"last_activity_date"`
-	} `json:"items"`
+type SQLQuestionUser struct {
+	DisplayName string `json:"display_name"`
 }
 
-func (r *SOQuestionResponse) GetDescription() string {
-	if len(r.Items) == 0 {
-		return ""
-	}
-
-	if r.Items[0].IsAnswered {
-		return "Question is answered"
-	}
-
-	return "Still unanswered"
+type SQLQuestionItem struct {
+	Title        string          `json:"title"`
+	User         SQLQuestionUser `json:"owner"`
+	CreationDate int64           `json:"creation_date"`
+	Body         string          `json:"body"`
 }
 
-func (r *SOQuestionResponse) GetDate() time.Time {
-	if len(r.Items) == 0 {
-		return time.Time{}
-	}
-
-	return time.Unix(r.Items[0].LastActivityDate, 0)
+type SQLQuestionResponse struct {
+	Items []SQLQuestionItem `json:"items"`
 }
+
+func (q *SQLQuestionItem) GetTitle() string {
+	return q.Title // Assuming the body contains the title, adjust as necessary
+}
+
+func (q *SQLQuestionItem) GetUser() string {
+	return q.User.DisplayName
+}
+
+func (q *SQLQuestionItem) GetCreatedAt() time.Time {
+	return time.Unix(q.CreationDate, 0)
+}
+
+func (q *SQLQuestionItem) GetBody() string {
+	return q.Body[:200]
+}
+
+type SQLQuestionItemWrapper struct {
+	Item SQLQuestionItem
+	Type models.EventType
+}
+
+func (w *SQLQuestionItemWrapper) GetType() models.EventType { return w.Type }
+func (w *SQLQuestionItemWrapper) GetTitle() string          { return w.Item.GetTitle() }
+func (w *SQLQuestionItemWrapper) GetUser() string           { return w.Item.GetUser() }
+func (w *SQLQuestionItemWrapper) GetCreatedAt() time.Time   { return w.Item.GetCreatedAt() }
+func (w *SQLQuestionItemWrapper) GetBody() string           { return w.Item.GetBody() }

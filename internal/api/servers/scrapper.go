@@ -14,10 +14,11 @@ import (
 
 func NewScrapperServer(
 	cfg *config.Config,
-	service service.UserService,
+	userService service.UserService,
+	linksService service.LinksService,
 	middlewares []scrapper_api.MiddlewareFunc,
 ) *http.Server {
-	api := scrapper.NewAPI(service)
+	api := scrapper.NewAPI(userService, linksService)
 
 	mux := http.NewServeMux()
 	handler := scrapper_api.HandlerWithOptions(api, scrapper_api.StdHTTPServerOptions{

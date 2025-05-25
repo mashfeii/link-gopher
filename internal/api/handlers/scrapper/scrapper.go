@@ -12,12 +12,14 @@ import (
 )
 
 type API struct {
-	service service.UserService
+	userService  service.UserService
+	linksService service.LinksService
 }
 
-func NewAPI(service service.UserService) *API {
+func NewAPI(userService service.UserService, linksService service.LinksService) *API {
 	return &API{
-		service: service,
+		userService:  userService,
+		linksService: linksService,
 	}
 }
 
@@ -33,9 +35,9 @@ func (s *API) DeleteLinks(w http.ResponseWriter, r *http.Request, params scrappe
 		return
 	}
 
-	link, meta, code, err := s.service.DeleteLink(r.Context(), params.TgChatId, requestBody.Link)
+	link, meta, err := s.linksService.DeleteLink(r.Context(), params.TgChatId, requestBody.Link)
 	if err != nil {
-		api.ResponseError(w, code, err)
+		api.ResponseError(w, http.StatusBadRequest, err)
 
 		return
 	}
@@ -50,13 +52,18 @@ func (s *API) DeleteLinks(w http.ResponseWriter, r *http.Request, params scrappe
 
 // (GET /links).
 func (s *API) GetLinks(w http.ResponseWriter, r *http.Request, params scrapper_api.GetLinksParams) {
-	linksResponse, status, err := s.service.RetrieveLinks(r.Context(), params.TgChatId)
+	linksResponse, err := s.linksService.RetrieveLinks(r.Context(), params.TgChatId)
 	if err != nil {
-		api.ResponseError(w, status, err)
+		api.ResponseError(w, http.StatusBadRequest, err)
 		return
 	}
 
 	size := int32(len(linksResponse)) //nolint:gosec // specification limitation
+
+	if size == 0 {
+		api.ResponseError(w, http.StatusNotFound, errors.ErrNoLinksFound{})
+		return
+	}
 
 	api.ResponseWithJSON(w, http.StatusOK, scrapper_api.ListLinksResponse{
 		Links: &linksResponse,
@@ -77,7 +84,7 @@ func (s *API) PostLinks(w http.ResponseWriter, r *http.Request, params scrapper_
 		return
 	}
 
-	link, code, err := s.service.TrackLink(
+	link, err := s.linksService.TrackLink(
 		r.Context(),
 		params.TgChatId,
 		requestBody.Link,
@@ -85,7 +92,7 @@ func (s *API) PostLinks(w http.ResponseWriter, r *http.Request, params scrapper_
 		requestBody.Filters,
 	)
 	if err != nil {
-		api.ResponseError(w, code, err)
+		api.ResponseError(w, http.StatusBadRequest, err)
 	}
 
 	api.ResponseWithJSON(w, http.StatusOK, scrapper_api.LinkResponse{
@@ -98,28 +105,28 @@ func (s *API) PostLinks(w http.ResponseWriter, r *http.Request, params scrapper_
 
 // (DELETE /tg-chat/{id}).
 func (s *API) DeleteTgChatId(w http.ResponseWriter, r *http.Request, id int64) { //nolint:stylecheck,revive // generated method
-	code, err := s.service.DeleteUser(r.Context(), id)
+	err := s.userService.DeleteUser(r.Context(), id)
 	if err != nil {
-		api.ResponseError(w, code, err)
+		api.ResponseError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	api.ResponseWithJSON(w, code, id)
+	api.ResponseWithJSON(w, http.StatusOK, id)
 }
 
 // (POST /tg-chat/{id}).
 func (s *API) PostTgChatId(w http.ResponseWriter, r *http.Request, id int64) { //nolint:stylecheck,revive // generated method
-	code, err := s.service.RegisterUser(r.Context(), id)
+	err := s.userService.RegisterUser(r.Context(), id)
 	if err != nil {
 		if defaulterrors.As(err, &errors.ErrUserAlreadyExists{}) {
 			api.ResponseWithJSON(w, http.StatusAlreadyReported, id)
 			return
 		}
 
-		api.ResponseError(w, code, err)
+		api.ResponseError(w, http.StatusBadRequest, err)
 
 		return
 	}
 
-	api.ResponseWithJSON(w, code, id)
+	api.ResponseWithJSON(w, http.StatusOK, id)
 }

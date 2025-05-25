@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-co-op/gocron/v2"
@@ -45,54 +45,75 @@ func checkUpdates(
 	ghClient models.LinkChecker,
 	soClient models.LinkChecker,
 ) {
+	const op = "application.checkUpdates"
+
 	links, err := repo.GetAllActiveLinks(context.Background())
 	if err != nil {
 		return
 	}
 
 	for _, link := range links {
-		switch link.GetType() {
-		case "github.com":
-			handleEvent(&link, ghClient, botClient)
+		var client models.LinkChecker
 
-		case "stackoverflow.com":
-			handleEvent(&link, soClient, botClient)
+		switch link.GetType() {
+		case models.LinkTypeGithub:
+			client = ghClient
+		case models.LinkTypeStackOverflow:
+			client = soClient
+		case models.LinkTypeUnknown:
+			slog.Warn("unknown link type, skipping", "operation", op, "link", link.URL)
+			continue
+		}
+
+		updates, err := client.GetUpdates(link.URL, link.LastUpdate)
+		if err != nil {
+			slog.Error("failed to get updates", "operation", op, "link", link.URL, "error", err)
+			continue
+		}
+
+		if len(updates) == 0 {
+			slog.Info("no updates found", "operation", op, "link", link.URL)
+			continue
+		}
+
+		for _, update := range updates {
+			if update.GetCreatedAt().Before(link.LastUpdate) {
+				continue
+			}
+
+			var message strings.Builder
+
+			if link.GetType() == models.LinkTypeStackOverflow {
+				title, _ := client.GetQuestionTitle(link.URL)
+				message.WriteString(fmt.Sprintf("New %s on question %q: %s by %s at %s",
+					update.GetType(), title, update.GetTitle(), update.GetUser(), update.GetCreatedAt()))
+			} else {
+				message.WriteString(fmt.Sprintf("New %s: %s by %s at %s",
+					update.GetType(), update.GetTitle(), update.GetUser(), update.GetCreatedAt()))
+			}
+
+			finalResponse := message.String()
+
+			resp, err := botClient.PostUpdates(context.TODO(), bot_client.LinkUpdate{
+				TgChatId:    &link.ChatID,
+				Url:         &link.URL,
+				Description: &finalResponse,
+			})
+			if err != nil {
+				slog.Error("failed to post update", "opeartion", op, "link", link.URL, "error", err)
+				continue
+			}
+
+			if resp != nil {
+				resp.Body.Close()
+			}
+		}
+
+		// TODO: expand repository interface to support update operation.
+		link.SetLastUpdate(time.Now())
+
+		if len(updates) > 0 {
+			link.SetLastUpdate(updates[len(updates)-1].GetCreatedAt())
 		}
 	}
-}
-
-func handleEvent(link *models.Link, client models.LinkChecker, bot bot_client.ClientInterface) {
-	event, err := client.GetEvent(link.URL)
-	if err != nil {
-		slog.Error("unable to get repo events", slog.Any("error", err))
-		return
-	}
-
-	if event.GetDate().Before(link.LastUpdate) {
-		return
-	}
-
-	var (
-		chatID      = link.ChatID
-		url         = link.URL
-		description = event.GetDescription()
-	)
-
-	resp, err := bot.PostUpdates(context.TODO(), bot_client.LinkUpdate{
-		TgChatId:    &chatID,
-		Description: &description,
-		Url:         &url,
-	})
-	if err != nil {
-		slog.Error("unable to send update", slog.Any("error", err))
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		slog.Error("unable to send update", slog.Any("status", resp.StatusCode))
-		return
-	}
-
-	link.SetLastUpdate(event.GetDate())
 }

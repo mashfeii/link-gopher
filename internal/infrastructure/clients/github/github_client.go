@@ -10,53 +10,85 @@ import (
 	"github.com/es-debug/backend-academy-2024-go-template/pkg"
 )
 
+type HTTPRequestDoer interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type Client struct {
 	token      string
 	endpoint   string
-	httpClient *http.Client
+	httpClient HTTPRequestDoer
 }
 
-func NewClient(token string) *Client {
+func NewClient(token, endpoint string, httpClient HTTPRequestDoer) *Client {
 	return &Client{
 		token:      token,
-		endpoint:   "https://api.github.com/repos",
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		endpoint:   endpoint,
+		httpClient: httpClient,
 	}
 }
 
-func (c *Client) GetEvent(url string) (models.Event, error) {
+func (c *Client) GetUpdates(url string, since time.Time) ([]models.Event, error) {
 	owner, repo, err := pkg.ValidateGithubURL(url)
 	if err != nil {
 		return nil, err
 	}
 
-	reqURL := fmt.Sprintf("%s/%s/%s/events", c.endpoint, owner, repo)
+	// First, get Pull Requests
+	prURL := fmt.Sprintf("%s/repos/%s/%s/pulls?since=%s",
+		c.endpoint, owner, repo, since.Format(time.RFC3339))
 
-	req, err := http.NewRequest("GET", reqURL, http.NoBody)
+	prs, err := c.fetchEvents(prURL, "pull_request")
+	if err != nil {
+		return nil, err
+	}
+
+	// Then, get Issues
+	issuesURL := fmt.Sprintf("%s/repos/%s/%s/issues?since=%s",
+		c.endpoint, owner, repo, since.Format(time.RFC3339))
+
+	issues, err := c.fetchEvents(issuesURL, "issue")
+	if err != nil {
+		return nil, err
+	}
+
+	return append(prs, issues...), nil
+}
+
+func (c *Client) fetchEvents(url string, eventType models.EventType) ([]models.Event, error) {
+	const op = "github.Client.fetchEvents"
+
+	req, err := http.NewRequest(http.MethodGet, url, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("%s: failed to create request: %w", op, err)
+	}
+
 	req.Header.Add("Accept", "application/vnd.github+json")
 
 	if c.token != "" {
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", c.token))
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to do request: %w", err)
+		return nil, fmt.Errorf("%s: failed to get %s: %w", op, eventType, err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get events: %s", resp.Status)
+	var data []RepoResponse
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, fmt.Errorf("%s: failed to decode %s: %w", op, eventType, err)
 	}
 
-	var events []RepoResponse
-	if err := json.NewDecoder(resp.Body).Decode(&events); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	events := make([]models.Event, len(data))
+	for i, item := range data {
+		events[i] = &RepoResponseWrapper{Item: item, Type: eventType}
 	}
 
-	return &events[0], nil
+	return events, nil
+}
+
+// Blank implementation for GetQuestionTitle.
+func (c *Client) GetQuestionTitle(_ string) (string, error) {
+	return "", nil
 }

@@ -2,6 +2,8 @@ package application
 
 import (
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/es-debug/backend-academy-2024-go-template/config"
 	bot_client "github.com/es-debug/backend-academy-2024-go-template/internal/api/openapi/v1/clients/bot"
@@ -32,11 +34,25 @@ func NewDefaultDependencies(cfg *config.Config, repo repository.LinkRepository) 
 		return nil, err
 	}
 
+	defaultClient := http.Client{
+		Timeout: time.Duration(cfg.Serving.Interval) * time.Second,
+	}
+	githubClient := github.NewClient(
+		cfg.Secret.GitHubToken,
+		"https://api.github.com/repos",
+		&defaultClient,
+	)
+	stackoverflowClient := stackoverflow.NewClient(
+		cfg.Secret.StackOverflowToken,
+		"https://api.stackexchange.com/2.3",
+		&defaultClient,
+	)
+
 	return &SchedulerDependencies{
 		Repo:                repo,
 		BotClient:           client,
-		GithubClient:        github.NewClient(cfg.Secret.GitHubToken),
-		StackoverflowClient: stackoverflow.NewClient(cfg.Secret.StackOverflowToken),
+		GithubClient:        githubClient,
+		StackoverflowClient: stackoverflowClient,
 		Config:              cfg,
 	}, nil
 }

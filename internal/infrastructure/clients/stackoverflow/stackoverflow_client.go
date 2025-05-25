@@ -7,57 +7,128 @@ import (
 	"time"
 
 	"github.com/es-debug/backend-academy-2024-go-template/internal/domain/models"
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/errors"
 	"github.com/es-debug/backend-academy-2024-go-template/pkg"
 )
+
+type HTTPRequestDoer interface {
+	Do(req *http.Request) (*http.Response, error)
+}
 
 type Client struct {
 	key        string
 	endpoint   string
-	httpClient *http.Client
+	httpClient HTTPRequestDoer
 }
 
-func NewClient(apiKey string) *Client {
+func NewClient(key, endpoint string, client HTTPRequestDoer) *Client {
 	return &Client{
-		key:        apiKey,
-		endpoint:   "https://api.stackexchange.com/2.3/questions",
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		key:        key,
+		endpoint:   endpoint,
+		httpClient: client,
 	}
 }
 
-func (c *Client) GetEvent(url string) (models.Event, error) {
+func (c *Client) GetUpdates(url string, since time.Time) ([]models.Event, error) {
+	const op = "stackoverflow.Client.GetUpdates"
+
+	// Validate the StackOverflow URL and extract the question ID
 	questionID, err := pkg.ValidateStackOverflowURL(url)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, errors.NewErrInvalidURL(url))
+	}
+
+	// First, get answers to the question
+	answersURL := fmt.Sprintf("%s/questions/%d/answers?site=stackoverflow&filter=withbody&fromdate=%d", c.endpoint, questionID, since.Unix())
+
+	answers, err := c.fetchEvents(answersURL, models.EventTypeAnswer)
+	if err != nil {
+		return nil, fmt.Errorf("%s: failed to fetch answers: %w", op, err)
+	}
+
+	// Then, get comments on the question
+	commentsURL := fmt.Sprintf("%s/questions/%d/comments?site=stackoverflow&filter=withbody&fromdate=%d",
+		c.endpoint, questionID, since.Unix())
+
+	comments, err := c.fetchEvents(commentsURL, models.EventTypeComment)
 	if err != nil {
 		return nil, err
 	}
 
-	reqURL := fmt.Sprintf("%s/%d?site=stackoverflow", c.endpoint, questionID)
-	if c.key != "" {
-		reqURL += fmt.Sprintf("&key=%s", c.key)
+	return append(answers, comments...), nil
+}
+
+func (c *Client) fetchEvents(url string, format models.EventType) ([]models.Event, error) {
+	const op = "stackoverflow.Client.fetchEvents"
+
+	req, err := http.NewRequest(http.MethodGet, url, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("%s: failed to create request: %w", op, err)
 	}
 
-	req, err := http.NewRequest("GET", reqURL, http.NoBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+	req.Header.Add("Accept", "application/json")
+
+	if c.key != "" {
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", c.key))
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to do request: %w", err)
+		return nil, fmt.Errorf("%s: failed to do request: %w", op, err)
+	}
+
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	var events SQLQuestionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&events); err != nil {
+		return nil, fmt.Errorf("%s: failed to decode response: %w", op, err)
+	}
+
+	typedEvents := make([]models.Event, 0, len(events.Items))
+	for i, item := range events.Items {
+		typedEvents[i] = &SQLQuestionItemWrapper{Item: item, Type: format}
+	}
+
+	return typedEvents, nil
+}
+
+func (c *Client) GetQuestionTitle(url string) (string, error) {
+	const op = "stackoverflow.Client.GetQuestionTitle"
+
+	questionID, err := pkg.ValidateStackOverflowURL(url)
+	if err != nil {
+		return "", err
+	}
+
+	reqURL := fmt.Sprintf("%s/questions/%d?site=stackoverflow&filter=withbody", c.endpoint, questionID)
+
+	req, err := http.NewRequest(http.MethodGet, reqURL, http.NoBody)
+	if err != nil {
+		return "", fmt.Errorf("%s: failed to create request: %w", op, err)
+	}
+
+	req.Header.Add("Accept", "application/json")
+
+	if c.key != "" {
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", c.key))
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("%s: failed to get question title: %w", op, err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("StackOverflow API error: %s", resp.Status)
+	var data SQLQuestionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return "", fmt.Errorf("%s: failed to decode question title: %w", op, err)
 	}
 
-	var questionData SOQuestionResponse
-	if err := json.NewDecoder(resp.Body).Decode(&questionData); err != nil {
-		return nil, err
+	if len(data.Items) == 0 {
+		return "", fmt.Errorf("%s: no items found for question ID %d", op, questionID)
 	}
 
-	if len(questionData.Items) == 0 {
-		return nil, fmt.Errorf("question not found")
-	}
-
-	return &questionData, nil
+	return data.Items[0].GetTitle(), nil
 }

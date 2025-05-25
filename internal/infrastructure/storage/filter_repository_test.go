@@ -9,6 +9,8 @@ import (
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/storage"
 )
 
+// TODO: add gorooutines to tests
+
 func TestInMemoryFilterRepository_AddFilterToLink(t *testing.T) {
 	t.Run("Correctly adds filter", func(t *testing.T) {
 		repo := storage.NewInMemoryFilterRepository()
