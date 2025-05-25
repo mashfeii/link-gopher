@@ -6,11 +6,12 @@ import (
 	"slices"
 	"strings"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/core"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/models"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/ui"
 	"github.com/es-debug/backend-academy-2024-go-template/pkg"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func ValidateSelectedLinks(links []models.LinkData, tags []string, filterName, filterValue string) []models.LinkData {
@@ -66,13 +67,11 @@ func DisplayListUntrackResults(
 
 	var message string
 
-	if len(links) == 0 {
-		logger.Info("no links found with selected tags")
+	logger.Info("found links with selected tags", "links", links)
 
+	if len(links) == 0 {
 		message = "No links found with the selected filters."
 	} else {
-		logger.Info("found links with selected tags", "links", links)
-
 		message = "*Found links with the selected filters:*\n"
 	}
 
@@ -86,27 +85,34 @@ func DisplayListUntrackResults(
 		}
 	}
 
+	var (
+		botMessage tgbotapi.Message
+		err        error
+	)
+
 	if session.LastBotMessageID == nil {
-		if _, err := messageService.Send(
+		botMessage, err = messageService.Send(
 			chatID,
 			message,
 			&models.SendMessageOptions{
 				ReplyMarkup: keyboard.Build(),
 				ParseMode:   tgbotapi.ModeMarkdown,
 			},
-		); err != nil {
+		)
+		if err != nil {
 			logger.Error("failed to edit message", "error", err)
 			return fmt.Errorf("%s: failed to edit message: %w", op, err)
 		}
 
 		logger.Info("sent result message to user")
 	} else {
-		if _, err := messageService.EditMessage(
+		botMessage, err = messageService.EditMessage(
 			chatID,
 			*session.LastBotMessageID,
 			message,
 			keyboard.Build(),
-		); err != nil {
+		)
+		if err != nil {
 			logger.Error("failed to edit message", "error", err)
 			return fmt.Errorf("%s: failed to edit message: %w", op, err)
 		}
@@ -118,7 +124,12 @@ func DisplayListUntrackResults(
 		sessionManager.Clear(chatID)
 
 		logger.Info("cleared session for user", "chat_id", chatID)
+
+		return nil
 	}
+
+	session.LastBotMessageID = &botMessage.MessageID
+	sessionManager.Set(chatID, session)
 
 	return nil
 }

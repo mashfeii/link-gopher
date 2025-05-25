@@ -6,10 +6,11 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/samber/lo"
+
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/handlers"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/models"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/ui"
-	"github.com/samber/lo"
 )
 
 type ListUntrackTagToggle struct{}

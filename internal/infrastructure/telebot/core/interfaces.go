@@ -3,8 +3,9 @@ package core
 import (
 	"context"
 
-	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/models"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
+	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/models"
 )
 
 type SessionManager interface {

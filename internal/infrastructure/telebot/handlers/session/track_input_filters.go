@@ -6,11 +6,12 @@ import (
 	"log/slog"
 	"strings"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/samber/lo"
+
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/handlers"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/models"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/ui"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/samber/lo"
 )
 
 type TrackInputFilters struct{}

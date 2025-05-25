@@ -166,25 +166,20 @@ func setupCommands(baseRouter *router.Router) *router.Router {
 	baseRouter.RegisterCommand(
 		models.CommandNameList,
 		"list all tracked links",
-		&commands.ListHandler{},
+		&commands.ListUntrackHandler{},
+		middleware.AuthMiddleware(),
+	)
+	baseRouter.RegisterCommand(
+		models.CommandNameUntrack,
+		"stop tracking a link",
+		&commands.ListUntrackHandler{},
 		middleware.AuthMiddleware(),
 	)
 
 	return baseRouter
 }
 
-func setupRouting(
-	apiWrapper *tgbotapi.BotAPI,
-	apiService core.ScrapperService,
-	messageService core.MessageService,
-	sessionManager core.SessionManager,
-) *router.Router {
-	// Register defined handlers for commands
-	baseRouter := router.NewRouter(apiWrapper, sessionManager, messageService, apiService)
-
-	baseRouter = setupCommands(baseRouter)
-
-	// Session handlers for /track command
+func setupSessions(baseRouter *router.Router) *router.Router {
 	baseRouter.RegisterSessionHandler(
 		models.StateTrackInputURL,
 		&sessionHandlers.TrackInputURL{},
@@ -201,6 +196,10 @@ func setupRouting(
 		middleware.TrackSessionMiddleware(),
 	)
 
+	return baseRouter
+}
+
+func setupTrackCallbacks(baseRouter *router.Router) *router.Router {
 	baseRouter.RegisterCallbackHandler(
 		models.CallbackReturnTags,
 		&callback.TrackReturnTags{},
@@ -232,6 +231,10 @@ func setupRouting(
 		middleware.TrackSessionMiddleware(),
 	)
 
+	return baseRouter
+}
+
+func setupUntrackCallbacks(baseRouter *router.Router) *router.Router {
 	baseRouter.RegisterCallbackHandler(
 		models.PrefixTagToggle,
 		&callback.ListUntrackTagToggle{},
@@ -262,6 +265,27 @@ func setupRouting(
 		&callback.ListUntrackSkipFilters{},
 		middleware.ListUntrackSessionMiddleware(),
 	)
+	baseRouter.RegisterCallbackHandler(
+		models.PrefixUntrack,
+		&callback.ListUntrackUntrack{},
+		middleware.ListUntrackSessionMiddleware(),
+	)
+
+	return baseRouter
+}
+
+func setupRouting(
+	apiWrapper *tgbotapi.BotAPI,
+	apiService core.ScrapperService,
+	messageService core.MessageService,
+	sessionManager core.SessionManager,
+) *router.Router {
+	baseRouter := router.NewRouter(apiWrapper, sessionManager, messageService, apiService)
+
+	baseRouter = setupCommands(baseRouter)
+	baseRouter = setupSessions(baseRouter)
+	baseRouter = setupTrackCallbacks(baseRouter)
+	baseRouter = setupUntrackCallbacks(baseRouter)
 
 	return baseRouter
 }

@@ -8,10 +8,11 @@ import (
 
 	"github.com/samber/lo"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/handlers"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/models"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/ui"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type TrackInputTags struct{}

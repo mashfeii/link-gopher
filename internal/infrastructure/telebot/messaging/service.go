@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/errors"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/models"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/ui"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type MessageService struct {
@@ -135,10 +136,8 @@ func (s *MessageService) getErrorMessage(err error) string {
 	}
 
 	if standarderrors.As(err, &errors.ErrInvalidURL{}) {
-		return fmt.Sprintf("%s Invalid URL. Try another one:\n%s github.com/golang/go\n%s stackoverflow.com/questions/17333517/how-to-compile-a-program-in-go-language", //nolint:lll // ignore line length
+		return fmt.Sprintf("%s Invalid URL. Try another one:\n• github.com/golang/go\n• stackoverflow.com/questions/17333517/how-to-compile-a-program-in-go-language", //nolint:lll // ignore line length
 			ui.IconCross,
-			ui.IconChecked,
-			ui.IconChecked,
 		)
 	}
 

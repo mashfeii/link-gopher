@@ -6,20 +6,21 @@ import (
 	"slices"
 	"strings"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/samber/lo"
+
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/errors"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/handlers"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/handlers/callback"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/models"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/session"
 	"github.com/es-debug/backend-academy-2024-go-template/internal/infrastructure/telebot/ui"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/samber/lo"
 )
 
-type ListHandler struct{}
+type ListUntrackHandler struct{}
 
-func (h *ListHandler) Handle(ctx context.Context, hctx *handlers.HandlerContext) error {
-	const op = "commands.ListHandler.Handle"
+func (h *ListUntrackHandler) Handle(ctx context.Context, hctx *handlers.HandlerContext) error {
+	const op = "commands.ListUntrackHandler.Handle"
 
 	links, err := hctx.ScrapperService.GetLinks(context.WithValue(ctx, models.ContextKeyChatID, hctx.ChatID))
 	if err != nil {
@@ -53,7 +54,9 @@ func (h *ListHandler) Handle(ctx context.Context, hctx *handlers.HandlerContext)
 		}
 	}
 
-	newSession := session.CreateListUntrackSession(models.CommandNameList, nil, &hctx.Update.Message.MessageID)
+	newSession := session.CreateListUntrackSession(
+		models.CommandName(hctx.Update.Message.Command()), nil, &hctx.Update.Message.MessageID,
+	)
 	newSession.AvailableTags = lo.Keys(tags)
 	newSession.AvailableFilters = filters
 
