@@ -14,14 +14,12 @@ const (
 )
 
 type Link struct {
-	LinkID     int64     `json:"link_id"`
-	ChatID     int64     `json:"chat_id"`
-	URL        string    `json:"url"`
-	LastUpdate time.Time `json:"last_update"`
-}
-
-func (l *Link) SetLastUpdate(update time.Time) {
-	l.LastUpdate = update
+	LinkID      int64
+	ChatID      int64
+	URL         string
+	Type        LinkType
+	LastChecked time.Time
+	LastUpdated time.Time
 }
 
 func (l *Link) GetType() LinkType {
