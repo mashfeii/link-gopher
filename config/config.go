@@ -10,19 +10,32 @@ import (
 	"github.com/spf13/viper"
 )
 
+type AccessType string
+
+const (
+	AccessTypeSQL AccessType = "SQL"
+	AccessTypeORM AccessType = "ORM"
+)
+
 type (
 	Config struct {
-		Env      string   `yaml:"env" env:"ENV" envDefault:"local"`
-		Database Database `yaml:"database"`
-		Secret   Secret
-		Serving  Serving `yaml:"serving"`
+		Env       string   `yaml:"env" env:"ENV" envDefault:"local"`
+		Database  Database `yaml:"database"`
+		Secret    Secret
+		Serving   Serving   `yaml:"serving"`
+		Scheduler Scheduler `yaml:"scheduler"`
+	}
+	Scheduler struct {
+		Interval  int `yaml:"interval" env:"SCHEDULER_INTERVAL" envDefault:"5"`
+		ChunkSize int `yaml:"chunk_size" env:"SCHEDULER_CHUNK_SIZE" envDefault:"50"`
 	}
 	Database struct {
-		Host     string `yaml:"host" env:"DB_HOST"`
-		Port     int    `yaml:"port" env:"DB_PORT"`
-		Username string `yaml:"username" env:"DB_USERNAME"`
-		Password string `yaml:"password" env:"DB_PASSWORD"`
-		Name     string `yaml:"name" env:"DB_NAME"`
+		Host       string     `yaml:"host" env:"DB_HOST"`
+		Port       int        `yaml:"port" env:"DB_PORT"`
+		Username   string     `yaml:"username" env:"DB_USERNAME"`
+		Password   string     `yaml:"password" env:"DB_PASSWORD"`
+		Name       string     `yaml:"name" env:"DB_NAME"`
+		AccessType AccessType `yaml:"access_type" env:"DB_ACCESS_TYPE" envDefault:"SQL"`
 	}
 	Secret struct {
 		BotToken           string `env:"BOT_TOKEN" envDefault:""`
@@ -39,13 +52,8 @@ type (
 )
 
 func (d *Database) ToDSN() string {
-	return fmt.Sprintf("postgresql://%s:%s@%s:%d%s?target_session_attrs=read-write&ssl-mode=disable",
-		d.Username,
-		d.Password,
-		d.Host,
-		d.Port,
-		d.Name,
-	)
+	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable&application_name=link-gopher&target_session_attrs=read-write",
+		d.Username, d.Password, d.Host, d.Port, d.Name)
 }
 
 func NewConfig(name string) (*Config, error) {

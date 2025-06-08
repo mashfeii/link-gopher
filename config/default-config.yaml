@@ -10,3 +10,6 @@ serving:
   scrapper_port: 8080
   bot_port: 8081
   debug: true
+scheduler:
+  interval: 5
+  chunk_size: 50
