@@ -23,7 +23,7 @@ func StartScheduler(deps *SchedulerDependencies) (gocron.Scheduler, error) {
 	_, err = scheduler.NewJob(
 		gocron.DurationJob(time.Duration(deps.Config.Serving.Interval)*time.Minute),
 		gocron.NewTask(
-			checkUpdates,
+			CheckUpdates,
 			deps.Repo,
 			deps.BotClient,
 			deps.GithubClient,
@@ -39,7 +39,7 @@ func StartScheduler(deps *SchedulerDependencies) (gocron.Scheduler, error) {
 	return scheduler, nil
 }
 
-func checkUpdates(
+func CheckUpdates(
 	repo repository.LinkRepository,
 	botClient bot_client.ClientInterface,
 	ghClient models.LinkChecker,
@@ -55,7 +55,7 @@ func checkUpdates(
 	for _, link := range links {
 		var client models.LinkChecker
 
-		switch link.GetType() {
+		switch link.Type {
 		case models.LinkTypeGithub:
 			client = ghClient
 		case models.LinkTypeStackOverflow:
@@ -65,19 +65,28 @@ func checkUpdates(
 			continue
 		}
 
-		updates, err := client.GetUpdates(link.URL, link.LastUpdate)
+		updates, err := client.GetUpdates(link.URL, link.LastUpdated)
 		if err != nil {
 			slog.Error("failed to get updates", "operation", op, "link", link.URL, "error", err)
 			continue
 		}
 
+		link.LastUpdated = time.Now()
+
 		if len(updates) == 0 {
 			slog.Info("no updates found", "operation", op, "link", link.URL)
+
+			// INFO: if no updates found, we still update the link to reflect the last checked time
+			err = repo.UpdateLink(context.Background(), &link)
+			if err != nil {
+				slog.Error("failed to update link after no updates", "operation", op, "link", link.URL, "error", err)
+			}
+
 			continue
 		}
 
 		for _, update := range updates {
-			if update.GetCreatedAt().Before(link.LastUpdate) {
+			if update.GetCreatedAt().Before(link.LastUpdated) {
 				continue
 			}
 
@@ -109,11 +118,23 @@ func checkUpdates(
 			}
 		}
 
-		// TODO: expand repository interface to support update operation.
-		link.SetLastUpdate(time.Now())
+		link.LastUpdated = time.Now()
 
+		// INFO: update processed link with appropriate update time
+		err = repo.UpdateLink(context.Background(), &link)
+		if err != nil {
+			slog.Error("failed to update link", "operation", op, "link", link.URL, "error", err)
+			return
+		}
+
+		// INFO: in case of multiple updates, we take the last one
 		if len(updates) > 0 {
-			link.SetLastUpdate(updates[len(updates)-1].GetCreatedAt())
+			link.LastUpdated = updates[len(updates)-1].GetCreatedAt()
+
+			err = repo.UpdateLink(context.Background(), &link)
+			if err != nil {
+				return
+			}
 		}
 	}
 }

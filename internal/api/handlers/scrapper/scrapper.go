@@ -55,15 +55,11 @@ func (s *API) GetLinks(w http.ResponseWriter, r *http.Request, params scrapper_a
 	linksResponse, err := s.linksService.RetrieveLinks(r.Context(), params.TgChatId)
 	if err != nil {
 		api.ResponseError(w, http.StatusBadRequest, err)
+
 		return
 	}
 
 	size := int32(len(linksResponse)) //nolint:gosec // specification limitation
-
-	if size == 0 {
-		api.ResponseError(w, http.StatusNotFound, errors.ErrNoLinksFound{})
-		return
-	}
 
 	api.ResponseWithJSON(w, http.StatusOK, scrapper_api.ListLinksResponse{
 		Links: &linksResponse,

@@ -42,13 +42,9 @@ func (s *ScrapperClientWrapper) GetUser(ctx context.Context) (bool, error) {
 
 	chatID := ctx.Value(models.ContextKeyChatID).(int64)
 
-	resp, err := s.client.GetLinksWithResponse(ctx, &scrapperclient.GetLinksParams{TgChatId: chatID})
+	_, err := s.client.GetLinksWithResponse(ctx, &scrapperclient.GetLinksParams{TgChatId: chatID})
 	if err != nil {
 		return false, fmt.Errorf("%s: unable to get user: %w", op, err)
-	}
-
-	if resp.StatusCode() == http.StatusUnauthorized {
-		return false, errors.NewErrUserNotFound(chatID)
 	}
 
 	return true, nil
