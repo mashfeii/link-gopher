@@ -10,6 +10,13 @@ services:
       - SCRAPPER_PORT=8080
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - STACKOVERFLOW_TOKEN=${STACKOVERFLOW_TOKEN}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=mydb
+    depends_on:
+      - postgres
     networks:
       - botnet
 
@@ -23,8 +30,35 @@ services:
       - HOST=scrapper
       - BOT_PORT=8081
       - BOT_TOKEN=${BOT_TOKEN}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=mydb
     depends_on:
       - scrapper
+      - postgres
+    networks:
+      - botnet
+
+  postgres:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=mydb
+    ports:
+      - "5432:5432"
+    networks:
+      - botnet
+
+  migrator:
+    image: liquibase/liquibase
+    volumes:
+      - ./migrations:/liquibase/changelog
+    command: --url=jdbc:postgresql://postgres:5432/mydb?user=user&password=password --changeLogFile=changelog.xml update
+    depends_on:
+      - postgres
     networks:
       - botnet
 

@@ -51,9 +51,10 @@ func (s *LinkServiceImpl) TrackLink(
 	}
 
 	link := &models.Link{
-		ChatID:     chatID,
-		URL:        url,
-		LastUpdate: time.Now(),
+		ChatID:      chatID,
+		URL:         url,
+		LastUpdated: time.Now(),
+		LastChecked: time.Now(),
 	}
 
 	linkID, err := s.linksRepo.AddLink(ctx, link)
@@ -62,7 +63,7 @@ func (s *LinkServiceImpl) TrackLink(
 	}
 
 	for _, tag := range tags {
-		if err := s.tagsRepo.AddTagToLink(ctx, *linkID, tag); err != nil {
+		if err := s.tagsRepo.AddTagToLink(ctx, link.LinkID, link.URL, tag); err != nil {
 			return nil, err
 		}
 	}
@@ -111,7 +112,7 @@ func (s *LinkServiceImpl) RetrieveLinks(ctx context.Context, chatID int64) ([]sc
 	const op = "links_service.RetrieveLinks"
 
 	if _, err := s.usersRepo.GetUser(ctx, chatID); err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return nil, fmt.Errorf("%s: %w", op, errors.NewErrUserNotFound(chatID))
 	}
 
 	userLinks, err := s.linksRepo.GetLinksByUser(ctx, chatID)
@@ -139,9 +140,18 @@ func (s *LinkServiceImpl) RetrieveLinks(ctx context.Context, chatID int64) ([]sc
 }
 
 func (s *LinkServiceImpl) RetrieveMeta(ctx context.Context, chatID int64, url string) (*LinkMeta, error) {
-	link, err := s.linksRepo.GetLinkByURL(ctx, chatID, url)
+	links, err := s.linksRepo.GetLinksByUser(ctx, chatID)
 	if err != nil {
 		return nil, err
+	}
+
+	var link *models.Link
+
+	for _, l := range links {
+		if strings.EqualFold(l.URL, url) {
+			link = &l
+			break
+		}
 	}
 
 	filters, err := s.filtersRepo.GetFiltersByLink(ctx, link.LinkID)
