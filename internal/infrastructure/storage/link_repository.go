@@ -109,3 +109,19 @@ func (r *InMemoryLinkRepository) GetAllActiveLinks(_ context.Context) ([]models.
 
 	return links, nil
 }
+
+func (r *InMemoryLinkRepository) UpdateLink(_ context.Context, link *models.Link) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.links[link.LinkID]; !exists {
+		return errors.NewErrLinkNotFound()
+	}
+
+	key := fmt.Sprintf("%d:%s", link.ChatID, link.URL)
+
+	r.links[link.LinkID] = link
+	r.urlIndex[key] = link.LinkID
+
+	return nil
+}

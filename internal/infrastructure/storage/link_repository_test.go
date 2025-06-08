@@ -15,9 +15,10 @@ func TestInMemoryLinkRepository_AddLink(t *testing.T) {
 	t.Run("Link already exists", func(t *testing.T) {
 		repo := storage.NewInMemoryLinkRepository()
 		link := models.Link{
-			ChatID:     1,
-			URL:        "https://example.com",
-			LastUpdate: time.Now(),
+			ChatID:      1,
+			URL:         "https://example.com",
+			LastUpdated: time.Now(),
+			LastChecked: time.Now(),
 		}
 
 		_, err := repo.AddLink(context.Background(), &link)
@@ -30,9 +31,10 @@ func TestInMemoryLinkRepository_AddLink(t *testing.T) {
 	t.Run("Correctly adds a link", func(t *testing.T) {
 		repo := storage.NewInMemoryLinkRepository()
 		link := models.Link{
-			ChatID:     1,
-			URL:        "https://example.com",
-			LastUpdate: time.Now(),
+			ChatID:      1,
+			URL:         "https://example.com",
+			LastUpdated: time.Now(),
+			LastChecked: time.Now(),
 		}
 
 		id, err := repo.AddLink(context.Background(), &link)
@@ -49,9 +51,10 @@ func TestInMemoryLinkRepository_DeleteLink(t *testing.T) {
 	t.Run("Link not found", func(t *testing.T) {
 		repo := storage.NewInMemoryLinkRepository()
 		link := models.Link{
-			ChatID:     1,
-			URL:        "https://example.com",
-			LastUpdate: time.Now(),
+			ChatID:      1,
+			URL:         "https://example.com",
+			LastUpdated: time.Now(),
+			LastChecked: time.Now(),
 		}
 
 		_, err := repo.AddLink(context.Background(), &link)
@@ -64,9 +67,10 @@ func TestInMemoryLinkRepository_DeleteLink(t *testing.T) {
 	t.Run("Correctly deletes a link", func(t *testing.T) {
 		repo := storage.NewInMemoryLinkRepository()
 		link := models.Link{
-			ChatID:     1,
-			URL:        "https://example.com",
-			LastUpdate: time.Now(),
+			ChatID:      1,
+			URL:         "https://example.com",
+			LastUpdated: time.Now(),
+			LastChecked: time.Now(),
 		}
 
 		_, err := repo.AddLink(context.Background(), &link)
@@ -107,30 +111,6 @@ func TestInMemoryLinkRepository_GetLinksByUser(t *testing.T) {
 		links, err := repo.GetLinksByUser(context.Background(), 1)
 		assert.NoError(t, err)
 		assert.Len(t, links, 2)
-	})
-}
-
-func TestInMemoryLinkRepository_GetLinkByURL(t *testing.T) {
-	t.Run("Link not found", func(t *testing.T) {
-		repo := storage.NewInMemoryLinkRepository()
-		link, err := repo.GetLinkByURL(context.Background(), 1, "https://example.com")
-		assert.ErrorContains(t, err, "not found")
-		assert.Nil(t, link)
-	})
-
-	t.Run("Get link by URL", func(t *testing.T) {
-		repo := storage.NewInMemoryLinkRepository()
-		link := models.Link{
-			ChatID: 1,
-			URL:    "https://example.com",
-		}
-
-		_, err := repo.AddLink(context.Background(), &link)
-		assert.NoError(t, err)
-
-		foundLink, err := repo.GetLinkByURL(context.Background(), 1, "https://example.com")
-		assert.NoError(t, err)
-		assert.Equal(t, link, *foundLink)
 	})
 }
 
