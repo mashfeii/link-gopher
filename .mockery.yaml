@@ -11,15 +11,19 @@ packages:
     interfaces:
       LinkChecker:
       Event:
-
   github.com/es-debug/backend-academy-2024-go-template/internal/domain/repository:
     interfaces:
-      UnifiedRepository:
-
+      FilterRepository:
+      LinkRepository:
+      TagRepository:
+      UserRepository:
   github.com/es-debug/backend-academy-2024-go-template/internal/api/openapi/v1/clients/bot:
     interfaces:
       ClientInterface:
-
   github.com/es-debug/backend-academy-2024-go-template/internal/api/openapi/v1/clients/scrapper:
     interfaces:
       ClientInterface:
+  github.com/es-debug/backend-academy-2024-go-template/internal/application/service:
+    interfaces:
+      UserService:
+      LinksService:
